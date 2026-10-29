@@ -189,42 +189,82 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   Widget _cameraView() {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  MobileScanner(
-                    controller: _scanner,
-                    onDetect: _onDetect,
-                    errorBuilder: (context, error) {
-                      // Permission denied / camera unavailable — surface once.
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted && !_cameraError) {
-                          setState(() => _cameraError = true);
-                        }
-                      });
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                  if (!_cameraError) _TorchButton(scanner: _scanner),
-                ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      Strings.scanQrTitle,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      Strings.scanCameraHint,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                height: (constraints.maxHeight * .62).clamp(280.0, 440.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      MobileScanner(
+                        controller: _scanner,
+                        onDetect: _onDetect,
+                        errorBuilder: (context, error) {
+                          // Permission denied / camera unavailable — surface once.
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted && !_cameraError) {
+                              setState(() => _cameraError = true);
+                            }
+                          });
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      const IgnorePointer(
+                        child: Center(
+                          child: FractionallySizedBox(
+                            widthFactor: .72,
+                            heightFactor: .66,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border.fromBorderSide(
+                                  BorderSide(color: Colors.white, width: 3),
+                                ),
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(24),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (!_cameraError) _TorchButton(scanner: _scanner),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SecondaryButton(
+                text: Strings.back,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            Strings.scanCameraHint,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -286,6 +326,12 @@ class _ResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, title, body, tone) = switch (result.outcome) {
+      QrRedemptionOutcome.staleReceipt => (
+        Icons.event_busy_outlined,
+        'رمز الحجز قديم',
+        'تم تغيير موعد الحجز. افتح الإيصال المحدّث من حساب المشتري.',
+        AppColors.warning,
+      ),
       QrRedemptionOutcome.checkedIn => (
         Icons.check_circle_outline,
         Strings.scanCheckedInTitle,
@@ -319,13 +365,22 @@ class _ResultView extends StatelessWidget {
     };
 
     final payload = result.payload;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 72, color: tone),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: .1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 56, color: tone),
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             title,
@@ -399,13 +454,22 @@ class _MessageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 72, color: Theme.of(context).colorScheme.error),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: AppColors.dangerContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 56, color: AppColors.danger),
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             title,

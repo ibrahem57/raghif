@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/strings.dart';
-import '../../core/theme/app_shapes.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/offline_notice.dart';
@@ -28,14 +28,19 @@ class OwnerHistoryScreen extends StatefulWidget {
 }
 
 class _OwnerHistoryScreenState extends State<OwnerHistoryScreen> {
-  late final Future<List<StoreDaySummary>> _days =
-      widget.controller.dailySummariesForStore(widget.storeId);
+  late final Future<List<StoreDaySummary>> _days = widget.controller
+      .dailySummariesForStore(widget.storeId);
 
   @override
   Widget build(BuildContext context) {
     final store = widget.controller.storeById(widget.storeId);
     return Scaffold(
-      appBar: AppBar(title: Text(Strings.historyTitle)),
+      appBar: AppBar(
+        toolbarHeight: MediaQuery.textScalerOf(context).scale(20) > 26
+            ? 96
+            : 64,
+        title: Text(Strings.historyTitle),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -46,58 +51,68 @@ class _OwnerHistoryScreenState extends State<OwnerHistoryScreen> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (snapshot.hasError) return const OfflineNotice();
+                if (snapshot.hasError) {
+                  return const OfflineNotice();
+                }
                 final days = snapshot.data ?? const <StoreDaySummary>[];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (store != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          AppSpacing.md,
-                          AppSpacing.md,
-                          0,
-                        ),
-                        child: Text(
-                          store.name,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ),
-                    const SizedBox(height: AppSpacing.md),
-                    Expanded(
-                      child: days.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                child: Text(
-                                  Strings.historyEmpty,
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                              ),
-                              itemCount: days.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: AppSpacing.sm),
-                              itemBuilder: (context, index) => _DayCard(
-                                summary: days[index],
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => OwnerHistoryDayScreen(
-                                      controller: widget.controller,
-                                      storeId: widget.storeId,
-                                      date: days[index].date,
+                return ListView.separated(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: days.length + 1,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (store != null)
+                            AppCard(
+                              child: Row(
+                                children: [
+                                  const CircleAvatar(
+                                    backgroundColor: AppColors.background,
+                                    foregroundColor: AppColors.accent,
+                                    child: Icon(Icons.history_rounded),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      store.name,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
-                    ),
-                  ],
+                          if (days.isEmpty) ...[
+                            const SizedBox(height: AppSpacing.md),
+                            AppCard(
+                              child: Text(
+                                Strings.historyEmpty,
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                    final day = days[index - 1];
+                    return _DayCard(
+                      summary: day,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => OwnerHistoryDayScreen(
+                            controller: widget.controller,
+                            storeId: widget.storeId,
+                            date: day.date,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -117,36 +132,44 @@ class _DayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return InkWell(
+    return AppCard(
       onTap: onTap,
-      borderRadius: AppShapes.large,
-      child: AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(summary.date, style: textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xs,
-              children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: AppColors.background,
+                foregroundColor: AppColors.accent,
+                child: Icon(Icons.calendar_month_outlined),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: Text(summary.date, style: textTheme.titleMedium)),
+              const Icon(Icons.chevron_left, color: AppColors.slate),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              StatusChip(
+                text: Strings.historySold(summary.sold),
+                tone: StatusTone.neutral,
+              ),
+              StatusChip(
+                text: Strings.historyCollected(summary.collected),
+                tone: StatusTone.success,
+              ),
+              if (!summary.everythingCollected)
                 StatusChip(
-                  text: Strings.historySold(summary.sold),
-                  tone: StatusTone.neutral,
+                  text: Strings.historyNotCollected(summary.notCollected),
+                  tone: StatusTone.warning,
                 ),
-                StatusChip(
-                  text: Strings.historyCollected(summary.collected),
-                  tone: StatusTone.success,
-                ),
-                if (!summary.everythingCollected)
-                  StatusChip(
-                    text: Strings.historyNotCollected(summary.notCollected),
-                    tone: StatusTone.warning,
-                  ),
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -170,13 +193,18 @@ class OwnerHistoryDayScreen extends StatefulWidget {
 }
 
 class _OwnerHistoryDayScreenState extends State<OwnerHistoryDayScreen> {
-  late final Future<List<PurchaseModel>> _queue =
-      widget.controller.queueForStore(widget.storeId, widget.date);
+  late final Future<List<PurchaseModel>> _queue = widget.controller
+      .queueForStore(widget.storeId, widget.date);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(Strings.historyDayTitle(widget.date))),
+      appBar: AppBar(
+        toolbarHeight: MediaQuery.textScalerOf(context).scale(20) > 26
+            ? 96
+            : 64,
+        title: Text(Strings.historyDayTitle(widget.date)),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -270,37 +298,48 @@ class _BuyerHistoryRow extends StatelessWidget {
       ),
     };
     final meta = [
-      if (purchase.userNationalId != null && purchase.userNationalId!.isNotEmpty)
+      if (purchase.userNationalId != null &&
+          purchase.userNationalId!.isNotEmpty)
         purchase.userNationalId!,
       if (purchase.userPhone != null && purchase.userPhone!.isNotEmpty)
         purchase.userPhone!,
     ].join('  ·  ');
 
     return AppCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  purchase.userName ?? purchase.userPhone ?? '',
-                  style: textTheme.bodyLarge,
-                ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    meta,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                backgroundColor: AppColors.background,
+                foregroundColor: AppColors.accent,
+                child: Icon(Icons.person_outline),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      purchase.userName ?? purchase.userPhone ?? '',
+                      style: textTheme.titleMedium,
                     ),
-                  ),
-                ],
-              ],
-            ),
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(meta, style: textTheme.bodyMedium),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          StatusChip(text: label, tone: tone),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: StatusChip(text: label, tone: tone),
+          ),
         ],
       ),
     );

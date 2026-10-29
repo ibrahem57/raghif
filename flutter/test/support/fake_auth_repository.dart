@@ -26,8 +26,10 @@ class FakeAuthRepository implements AuthRepository {
       users.where((u) => u.nationalId == nationalId).firstOrNull;
 
   @override
-  Future<UserModel?> login({required String phone, required String pin}) async =>
-      users.where((u) => u.phone == phone).firstOrNull;
+  Future<UserModel?> login({
+    required String phone,
+    required String pin,
+  }) async => users.where((u) => u.phone == phone).firstOrNull;
 
   @override
   Future<UserModel?> loginWithPin({
@@ -42,8 +44,7 @@ class FakeAuthRepository implements AuthRepository {
   Future<UserModel?> loginWithOtp({
     required String nationalId,
     required String code,
-  }) async =>
-      _byNationalId(nationalId);
+  }) async => _byNationalId(nationalId);
 
   @override
   Future<({String code, String phone})?> requestOtp(String nationalId) async {
@@ -60,8 +61,9 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<UserModel?> findById(String id) async =>
-      users.where((u) => u.id == id).firstOrNull;
+  Future<UserModel?> findById(String id) async => _updatedUser?.id == id
+      ? _updatedUser
+      : users.where((u) => u.id == id).firstOrNull;
 
   @override
   Future<bool> nationalIdExists(String nationalId) async =>
@@ -78,8 +80,7 @@ class FakeAuthRepository implements AuthRepository {
     required String nationalId,
     required String name,
     String? jawwalPayNumber,
-  }) =>
-      null;
+  }) => null;
 
   @override
   Future<UserModel> register({
@@ -88,14 +89,13 @@ class FakeAuthRepository implements AuthRepository {
     required String nationalId,
     required String name,
     String? jawwalPayNumber,
-  }) async =>
-      UserModel(
-        id: 'user-registered',
-        phone: phone,
-        nationalId: nationalId,
-        name: name,
-        jawwalPayNumber: jawwalPayNumber,
-      );
+  }) async => UserModel(
+    id: 'user-registered',
+    phone: phone,
+    nationalId: nationalId,
+    name: name,
+    jawwalPayNumber: jawwalPayNumber,
+  );
 
   @override
   Future<void> updateVerificationStatus(
@@ -108,6 +108,32 @@ class FakeAuthRepository implements AuthRepository {
     String userId,
     String jawwalPayNumber,
   ) async {}
+
+  @override
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+    required String jawwalPayNumber,
+  }) async {
+    if (failWith != null) throw failWith!;
+    final current = await restoreSession();
+    if (current == null) throw StateError('Not signed in');
+    final updated = UserModel(
+      id: current.id,
+      nationalId: current.nationalId,
+      role: current.role,
+      verificationStatus: current.verificationStatus,
+      name: name.trim(),
+      phone: phone.trim(),
+      jawwalPayNumber: jawwalPayNumber.trim().isEmpty
+          ? null
+          : jawwalPayNumber.trim(),
+    );
+    _updatedUser = updated;
+    return updated;
+  }
+
+  UserModel? _updatedUser;
 
   @override
   Future<void> logout() async => sessionUserId = null;

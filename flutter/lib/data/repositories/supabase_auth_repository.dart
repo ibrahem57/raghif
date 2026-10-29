@@ -21,9 +21,9 @@ class SupabaseAuthRepository implements AuthRepository {
     required SupabaseClient client,
     FcmService? fcmService,
     ReceiptStore? receipts,
-  })  : _client = client,
-        _fcmService = fcmService,
-        _receipts = receipts ?? ReceiptStore();
+  }) : _client = client,
+       _fcmService = fcmService,
+       _receipts = receipts ?? ReceiptStore();
 
   final SupabaseClient _client;
   final FcmService? _fcmService;
@@ -36,16 +36,16 @@ class SupabaseAuthRepository implements AuthRepository {
       'verification_status';
 
   static UserModel _userFromRow(Map<String, dynamic> row) => UserModel(
-        id: row['id'] as String,
-        phone: (row['phone'] as String?) ?? '',
-        nationalId: (row['national_id'] as String?) ?? '',
-        name: (row['name'] as String?) ?? '',
-        role: row['role'] == 'owner' ? UserRole.owner : UserRole.buyer,
-        jawwalPayNumber: row['jawwal_pay_number'] as String?,
-        verificationStatus: row['verification_status'] == 'verified'
-            ? VerificationStatus.verified
-            : VerificationStatus.pending,
-      );
+    id: row['id'] as String,
+    phone: (row['phone'] as String?) ?? '',
+    nationalId: (row['national_id'] as String?) ?? '',
+    name: (row['name'] as String?) ?? '',
+    role: row['role'] == 'owner' ? UserRole.owner : UserRole.buyer,
+    jawwalPayNumber: row['jawwal_pay_number'] as String?,
+    verificationStatus: row['verification_status'] == 'verified'
+        ? VerificationStatus.verified
+        : VerificationStatus.pending,
+  );
 
   Future<Map<String, dynamic>> _invoke(
     String action,
@@ -93,10 +93,7 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<UserModel?> login({
-    required String phone,
-    required String pin,
-  }) async {
+  Future<UserModel?> login({required String phone, required String pin}) async {
     return _answered(() async {
       final result = await _invoke('login-pin', {
         'identifier': phone.trim(),
@@ -139,8 +136,9 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<({String code, String phone})?> requestOtp(String nationalId) async {
     return _answered(() async {
-      final result =
-          await _invoke('otp-request', {'nationalId': nationalId.trim()});
+      final result = await _invoke('otp-request', {
+        'nationalId': nationalId.trim(),
+      });
       return (
         code: result['otpCode'] as String,
         phone: (result['phone'] as String?) ?? '',
@@ -182,10 +180,9 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<bool> nationalIdExists(String nationalId) async {
     try {
-      final result = await _invoke(
-        'check-availability',
-        {'nationalId': nationalId.trim()},
-      );
+      final result = await _invoke('check-availability', {
+        'nationalId': nationalId.trim(),
+      });
       return result['nationalIdExists'] as bool? ?? false;
     } catch (_) {
       return false;
@@ -195,10 +192,9 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<bool> phoneExists(String phone) async {
     try {
-      final result = await _invoke(
-        'check-availability',
-        {'phone': phone.trim()},
-      );
+      final result = await _invoke('check-availability', {
+        'phone': phone.trim(),
+      });
       return result['phoneExists'] as bool? ?? false;
     } catch (_) {
       return false;
@@ -245,10 +241,14 @@ class SupabaseAuthRepository implements AuthRepository {
     String userId,
     VerificationStatus status,
   ) async {
-    await _client.from('profiles').update({
-      'verification_status':
-          status == VerificationStatus.verified ? 'verified' : 'pending',
-    }).eq('id', userId);
+    await _client
+        .from('profiles')
+        .update({
+          'verification_status': status == VerificationStatus.verified
+              ? 'verified'
+              : 'pending',
+        })
+        .eq('id', userId);
   }
 
   @override
@@ -258,7 +258,27 @@ class SupabaseAuthRepository implements AuthRepository {
   ) async {
     await _client
         .from('profiles')
-        .update({'jawwal_pay_number': jawwalPayNumber.trim()}).eq('id', userId);
+        .update({'jawwal_pay_number': jawwalPayNumber.trim()})
+        .eq('id', userId);
+  }
+
+  @override
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+    required String jawwalPayNumber,
+  }) async {
+    final row = await _client
+        .rpc(
+          'update_my_profile',
+          params: {
+            'p_name': name.trim(),
+            'p_phone': phone.trim(),
+            'p_jawwal_pay_number': jawwalPayNumber.trim(),
+          },
+        )
+        .single();
+    return _userFromRow(row);
   }
 
   @override

@@ -19,4 +19,7 @@ for f in ../migrations/*.sql; do
 done
 psql < lock_direct_writes.sql
 psql < notify_purchase.sql
+psql < notification_inbox.sql
+psql < update_my_profile.sql
+psql < postpone_purchase.sql
 echo "SQL tests passed"

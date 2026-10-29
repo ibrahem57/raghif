@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raghif/core/i18n/strings.dart';
+import 'package:raghif/core/theme/app_theme.dart';
 import 'package:raghif/domain/models/purchase_model.dart';
 import 'package:raghif/features/queue/owner_queue_screen.dart';
 import 'package:raghif/features/queue/queue_logic.dart';
@@ -14,6 +15,98 @@ Widget wrapWithMaterial(Widget child) {
 }
 
 void main() {
+  for (final size in [const Size(320, 640), const Size(640, 320)]) {
+    testWidgets('queue actions remain reachable at $size with large text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final harness = buildQueueHarness(actingAs: seededOwnerId);
+      final repo = harness.repo;
+      repo.addUser(
+        'long-name',
+        name: 'أحمد محمد محمود عبد الرحمن النجار',
+        phone: '0599999999',
+        nationalId: '900999999',
+      );
+      final received = repo.givenPurchase(
+        userId: 'long-name',
+        storeId: seededStoreId,
+        date: todayDateString(),
+        status: PurchaseStatus.notified,
+      );
+      repo.givenPurchase(
+        userId: seededBuyerId,
+        storeId: seededStoreId,
+        date: todayDateString(),
+        batchNumber: 2,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(1.5)),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
+          ),
+          home: OwnerQueueScreen(
+            controller: harness.controller,
+            storeId: seededStoreId,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(
+        find.text(Strings.markReceived),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(Strings.markReceived).hitTestable(), findsOneWidget);
+      await tester.tap(find.text(Strings.markReceived));
+      await tester.pumpAndSettle();
+      expect(
+        (await repo.getPurchaseById(received.id))!.status,
+        PurchaseStatus.collected,
+      );
+      await tester.scrollUntilVisible(
+        find.text(Strings.undoReceived),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(Strings.undoReceived));
+      await tester.pumpAndSettle();
+      // collect_purchase is idempotent; the existing legacy undo-labelled
+      // action still calls collectPurchase and cannot reverse server pickup.
+      expect(
+        (await repo.getPurchaseById(received.id))!.status,
+        PurchaseStatus.collected,
+      );
+      await tester.scrollUntilVisible(
+        find.text(Strings.notifyNextBatch(2)),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(Strings.notifyNextBatch(2)));
+      await tester.pumpAndSettle();
+      expect(find.text(Strings.notifyConfirmTitle), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text(Strings.cancelLabel));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      harness.controller.dispose();
+      repo.dispose();
+    });
+  }
+
   group('OwnerQueueScreen pickup helpers', () {
     testWidgets('shows national ID + phone on buyer rows and filters by ID '
         'suffix while hiding the notify button during a search', (
@@ -30,10 +123,7 @@ void main() {
         phone: '0599111111',
       );
       final date = todayDateString();
-      final purchase = await controller.buy(
-        storeId: store.id,
-        date: date,
-      );
+      final purchase = await controller.buy(storeId: store.id, date: date);
       expect(purchase.userNationalId, buyer.nationalId);
 
       await tester.pumpWidget(
@@ -86,10 +176,7 @@ void main() {
 
         final store = (await repo.getStoreById(seededStoreId))!;
         final date = todayDateString();
-        final purchase = await controller.buy(
-          storeId: store.id,
-          date: date,
-        );
+        final purchase = await controller.buy(storeId: store.id, date: date);
         // notify_next_batch is owner-only server-side; act as the owner now.
         repo.currentUserId = seededOwnerId;
 

@@ -56,6 +56,7 @@ void main() {
     WidgetTester tester,
     String storeId, {
     ({QueueController controller, FakeQueueRepository repository})? env,
+    TextScaler textScaler = TextScaler.noScaling,
   }) async {
     final resolved = env ?? _buildTestEnv();
     await tester.pumpWidget(
@@ -63,6 +64,10 @@ void main() {
         value: mockAuthBloc,
         child: MaterialApp(
           theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          ),
           home: OwnerDashboardScreen(
             controller: resolved.controller,
             storeId: storeId,
@@ -86,6 +91,30 @@ void main() {
       expect(find.text('10:00'), findsOneWidget);
     },
   );
+
+  testWidgets('settings remain reachable on a narrow screen with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpDashboard(
+      tester,
+      seededStoreId,
+      textScaler: TextScaler.linear(1.5),
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(Strings.saveTodaySettings));
+    await tester.pumpAndSettle();
+    expect(find.text(Strings.unsavedSettingsNote), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'shows "not set" on the picker buttons when the store has no window yet',

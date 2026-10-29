@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_shapes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/big_stat_display.dart';
 import '../../core/widgets/number_stepper.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/secondary_button.dart';
@@ -18,28 +17,14 @@ import 'queue_controller.dart';
 import 'queue_logic.dart';
 import 'write_guard.dart';
 import 'confirm_action.dart';
+import '../account/account_screen.dart';
+import '../auth/bloc/auth_bloc.dart';
+import '../auth/demo_accounts.dart';
+import '../navigation/inbox_navigation.dart';
+import '../../core/di/injection.dart';
+import '../../domain/repositories/notification_repository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// UI_SPEC.md OwnerDashboardScreen, Flutter build.
-///
-/// One hero card answers the two questions an owner has while standing in the
-/// queue — "how much is left today?" and "is anyone waiting to collect?" —
-/// with "Remaining: X / Y" as the single largest element on screen
-/// (`displayLarge`, tabular numerals, per the UI_SPEC token table) plus a
-/// depletion bar so the ratio reads at a glance in sunlight.
-///
-/// Divergences from UI_SPEC.md's v2 draft, both deliberate:
-/// - The purchase window is set as open/close **times**, not the ON/OFF
-///   switch the draft described: store cards and the buyer's purchase screen
-///   publish the range, and the times are informational in the data model.
-///   The gate that switch was for is its own control below, because
-///   `StoreModel.isOpen` is what `canPurchase` actually reads.
-/// - Batch size is edited on [OwnerQueueScreen] — it regroups the queue, so
-///   it belongs next to the queue rather than here.
-///
-/// Both saved settings share one card and one save action (it writes the
-/// daily allocation *and* the window, so a label naming only the quantity was
-/// wrong), and that action only exists while something is unsaved — otherwise
-/// "did that save?" has no answer on screen.
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({
     super.key,
@@ -164,6 +149,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   void _push(Widget screen) {
+    HapticFeedback.selectionClick();
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
@@ -171,8 +157,60 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(Strings.ownerDashboardTitle),
+        title: ListenableBuilder(
+          listenable: widget.controller,
+          builder: (context, _) => Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+                child: Icon(Icons.storefront_outlined),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  widget.controller.storeById(widget.storeId)?.name ??
+                      Strings.ownerDashboardTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
+          IconButton(
+            tooltip: 'حسابي',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+          ),
+          IconButton(
+            tooltip: 'الإشعارات',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              final state = context.read<AuthBloc>().state;
+              if (state is! Authenticated) return;
+              final u = state.user;
+              openInbox(
+                context,
+                widget.controller,
+                DemoUser(
+                  id: u.id,
+                  phone: u.phone,
+                  pin: '',
+                  role: u.role,
+                  name: u.name,
+                  jawwalPayNumber: u.jawwalPayNumber,
+                ),
+                sl.isRegistered<NotificationRepository>()
+                    ? sl<NotificationRepository>()
+                    : null,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: Strings.logout,
@@ -204,8 +242,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _HeroCard(
-                              store: store,
+                            Text(
+                              Strings.ownerDashboardTitle,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              'نظرة عامة على متجرك',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _HeroCard(store: store),
+                            const SizedBox(height: AppSpacing.md),
+                            _DailyStats(
+                              remaining: store?.bagsRemaining ?? 0,
+                              allocation: store?.dailyBagLimit ?? 0,
                               pendingPickup: pendingPickupCount(
                                 widget.controller.todayQueue,
                               ),
@@ -236,6 +287,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                               onSave: store == null ? null : () => _save(store),
                             ),
                             const SizedBox(height: AppSpacing.md),
+                            Text(
+                              'إجراءات سريعة',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
                             AppCard(
                               onTap: () => _push(
                                 OwnerCustomersScreen(
@@ -321,14 +377,107 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 }
 
-/// Today's numbers for one store: name + day chip, the remaining counter as
-/// the largest element, its depletion bar, at most one status line, and the
-/// live paid-but-not-collected count.
+class _DailyStats extends StatelessWidget {
+  const _DailyStats({
+    required this.remaining,
+    required this.allocation,
+    required this.pendingPickup,
+  });
+
+  final int remaining;
+  final int allocation;
+  final int pendingPickup;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack =
+            constraints.maxWidth < 330 ||
+            MediaQuery.textScalerOf(context).scale(15) > 19;
+        final cards = [
+          _SmallStat(
+            icon: Icons.bakery_dining_outlined,
+            value: remaining,
+            label: Strings.remainingLabel,
+          ),
+          _SmallStat(
+            icon: Icons.hourglass_top_rounded,
+            value: pendingPickup,
+            label: Strings.pendingPickupLabel,
+          ),
+          _SmallStat(
+            icon: Icons.inventory_2_outlined,
+            value: allocation,
+            label: Strings.allocationLabel,
+          ),
+        ];
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(height: AppSpacing.sm),
+                cards[i],
+              ],
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: AppSpacing.sm),
+              Expanded(child: cards[i]),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SmallStat extends StatelessWidget {
+  const _SmallStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      child: Column(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.background,
+            foregroundColor: AppColors.accent,
+            child: Icon(icon),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '$value',
+            style: textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(label, textAlign: TextAlign.center, style: textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.store, required this.pendingPickup});
+  const _HeroCard({required this.store});
 
   final StoreModel? store;
-  final int pendingPickup;
 
   @override
   Widget build(BuildContext context) {
@@ -361,14 +510,12 @@ class _HeroCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  store?.name ?? '',
-                  style: textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              const CircleAvatar(
+                backgroundColor: AppColors.background,
+                foregroundColor: AppColors.accent,
+                child: Icon(Icons.bakery_dining_outlined),
               ),
+              const Spacer(),
               const SizedBox(width: AppSpacing.sm),
               const StatusChip(
                 text: Strings.todayLabel,
@@ -378,10 +525,18 @@ class _HeroCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          BigStatDisplay(
-            label: Strings.remainingLabel,
-            value: Strings.remainingValue(remaining, limit),
-            semanticsLabel: Strings.bagsRemaining(remaining, limit),
+          Text(Strings.remainingLabel, style: textTheme.bodyLarge),
+          const SizedBox(height: AppSpacing.xs),
+          Semantics(
+            label: Strings.bagsRemaining(remaining, limit),
+            child: Text(
+              Strings.remainingValue(remaining, limit),
+              style: textTheme.displaySmall?.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           _StockBar(remaining: remaining, limit: limit),
@@ -392,36 +547,6 @@ class _HeroCard extends StatelessWidget {
               child: statusLine,
             ),
           ],
-          const SizedBox(height: AppSpacing.md),
-          const Divider(height: 1, thickness: 1, color: AppColors.border),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  Strings.pendingPickupLabel,
-                  style: textTheme.bodyLarge,
-                ),
-              ),
-              // The number the owner acts on mid-crowd: a numeral, not a pill.
-              // Still icon plus number, never colour alone.
-              Icon(
-                Icons.schedule,
-                color: pendingPickup > 0
-                    ? AppColors.onWarningContainer
-                    : AppColors.textSecondary,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                '$pendingPickup',
-                style: textTheme.titleLarge?.copyWith(
-                  color: pendingPickup > 0
-                      ? AppColors.onWarningContainer
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -446,7 +571,7 @@ class _StockBar extends StatelessWidget {
         ? AppColors.danger
         : low
         ? AppColors.warning
-        : AppColors.success;
+        : AppColors.accent;
     // An empty track is all a sold-out bar would show, so the track itself
     // carries the state tint instead of staying neutral while nothing is left.
     final track = soldOut
@@ -506,6 +631,14 @@ class _StoreOpenCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  StatusChip(
+                    text: isOpen ? 'الحجز مفتوح' : Strings.storeClosedBadge,
+                    tone: isOpen ? StatusTone.success : StatusTone.neutral,
+                    icon: isOpen
+                        ? Icons.check_circle_outline
+                        : Icons.pause_circle_outline,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(
                     Strings.storeOpenSwitchLabel,
                     style: textTheme.titleMedium,
@@ -562,22 +695,17 @@ class _SettingsCard extends StatelessWidget {
         children: [
           Text(Strings.todaySettingsTitle, style: textTheme.titleMedium),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  Strings.allocationLabel,
-                  style: textTheme.bodyLarge,
-                ),
-              ),
-              NumberStepper(
-                value: allocation,
-                onChanged: onAllocationChanged,
-                step: 10,
-                decrementLabel: Strings.decreaseValue,
-                incrementLabel: Strings.increaseValue,
-              ),
-            ],
+          Text(Strings.allocationLabel, style: textTheme.bodyLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: NumberStepper(
+              value: allocation,
+              onChanged: onAllocationChanged,
+              step: 10,
+              decrementLabel: Strings.decreaseValue,
+              incrementLabel: Strings.increaseValue,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           const Divider(height: 1, thickness: 1, color: AppColors.border),
@@ -728,11 +856,15 @@ class _NavRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 56),
       child: Row(
         children: [
-          Icon(icon, size: 24, color: AppColors.slate),
+          CircleAvatar(
+            backgroundColor: AppColors.background,
+            foregroundColor: AppColors.accent,
+            child: Icon(icon, size: 24),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(label, style: Theme.of(context).textTheme.bodyLarge),

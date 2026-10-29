@@ -18,6 +18,48 @@ Workflow rules this changelog lives by:
   `TASKS.md` — this log starts at the current collaboration.
 
 ## [Unreleased]
+### Added — 2026-10-27 — buyer Stitch flow
+
+- Added governorate and area selection, an authenticated notification inbox, account/profile editing and tomorrow-postponement confirmation directly in the existing Flutter project. Reused the established cream/brown theme, RTL typography and existing layers; added buyer Home/My booking/Account navigation and owner account/inbox actions.
+- Kept geography based on actual stores, provided explicit loading/error/retry states, isolated session data on logout/user changes, and protected profile saves from duplicate submissions and late replies. Postponed bookings retain their identity/payment, consume tomorrow's quota/capacity, remain visible ahead of collected-today receipts, and invalidate the old-date QR.
+- Added four ordered Supabase migrations and scoped SQL tests. **Migrations are not deployed and SQL tests were not executed here**; live inbox, profile saving and postponement require the server deployment described in `docs/superpowers/plans/2026-10-27-server-deployment.md`. No production booking/profile/database writes were made for preview.
+- Verified the full Flutter suite: 269 pass, 2 existing skips; `dart analyze --fatal-infos` reports no issues. Release assembly passed with the established Android lint exclusions; updated the existing Pixel_8 with the same package/signature and preserved app data. Visually checked the live owner account screen. Original Android Studio is open on `governorate_screen.dart`; simultaneous IDE/emulator operation is constrained by the 6 GB host.
+- Five production-widget fixture previews are available in `../analysis/buyer-flow-five-screens.zip`; actual device account screenshot is `../analysis/new-flow-runtime-account.png`. Fixture previews use controlled test data and are labelled separately from device screenshots.
+
+### Changed — 2026-10-27 — remaining Stitch screens
+
+- Restyled the remaining 12 functional interfaces directly in the existing 10 Dart files: ID/selfie capture, verification waiting/result, purchase review, payment number/OTP/success, owner queue, QR scanner, customers, history and day details. Reused the cream palette, IBM Plex Arabic, white rounded cards, loaf/bread assets and pill actions; kept routes, controllers and service callbacks.
+- Made camera/error/result screens, forms, metadata and owner actions scroll at narrow widths, large text and landscape. Kept camera-only capture and real scanner/redemption guards. Payment and verification remain the existing simulations; no new integration or real reservation was created for preview.
+- Verified 161 selected visual/queue/payment/verification/a11y tests pass (2 pre-existing skips), with `dart analyze --fatal-infos` reporting no issues. Android release assembly passed after preserving/rebuilding a damaged Gradle transform cache; Android lint tasks were excluded by the existing environment workaround, and D8 Kotlin metadata warnings remain.
+- Verified unchanged package/signing certificate, updated the existing Pixel_8 with `install -r --abi x86_64`, and visually checked the live owner queue. Original Android Studio project is open on `owner_queue_screen.dart`. Preserved existing Studio settings and used a fresh IDE system cache to avoid a stale socket lock. Device retains the established software-renderer launch flags.
+- Review artifacts: `../analysis/remaining-runtime-owner-final.png` is a real AVD screenshot; `../analysis/raghif-remaining-screens.zip` contains production-widget test fixtures (including scanner camera-unavailable state), not device screenshots. Existing legacy “undo pickup” label still invokes the idempotent collect API; no reversal backend was introduced.
+
+### Changed (Stitch application screens)
+
+- Restyle the existing onboarding, registration, shared login, bakery list,
+  bakery details, QR receipt, current order and owner dashboard with the
+  cream Stitch palette, IBM Plex Arabic, loaf identity and rounded cards.
+- Retain the existing authentication fields, search and availability guards,
+  live order data, QR payload, receipt export and owner settings actions.
+- Check production screens at phone, narrow/large-text and landscape sizes;
+  verify focused behavior and accessibility checks, build the existing Android
+  package and update it on the existing Pixel_8 without clearing application data.
+
+### Changed (Stitch launch identity)
+
+- Match the first Stitch splash design in the existing Flutter entrypoint:
+  cream background, warm bread emblem, Arabic IBM Plex typography, wheat
+  decoration, progress dots, and a pressed-state start button.
+- Open the existing onboarding or authentication flow from the start button,
+  and use matching cream/vector Android launch resources in light and dark mode.
+
+### Changed (local Android setup)
+
+- Use the Gradle 8.12 binary distribution instead of the full distribution.
+  This keeps the build-tool version unchanged and avoids downloading its
+  sources and documentation when setting up Android Studio.
+- Limit Gradle memory and workers for the local emulator setup, and allow
+  the existing Arabic Windows checkout path without moving the project.
 
 ### Changed (data source)
 

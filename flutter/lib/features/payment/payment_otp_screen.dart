@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/i18n/strings.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/secondary_button.dart';
@@ -68,49 +70,77 @@ class _PaymentOtpScreenState extends State<PaymentOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
-      appBar: AppBar(title: const Text(Strings.paymentOtpTitle)),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text(Strings.paymentOtpTitle),
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        titleTextStyle: AppTypography.titleMedium,
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.all(AppSpacing.md),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: ExcludeSemantics(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Icon(Icons.password_rounded,
+                              color: AppColors.accent, size: 32),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    Strings.paymentOtpInstructions,
+                    style: AppTypography.bodyLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      '${Strings.phoneLabel}: \u2066${widget.phoneNumber}\u2069',
+                      style: AppTypography.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   AppCard(
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Theme.of(context).colorScheme.primary,
+                        const ExcludeSemantics(
+                          child: Icon(Icons.info_outline, color: AppColors.accent),
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             Strings.demoOtpNotification(_currentCode),
-                            style: textTheme.bodyMedium?.copyWith(
+                            style: AppTypography.bodyMedium.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: AppColors.accent,
                             ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    Strings.paymentOtpInstructions,
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    '${Strings.phoneLabel}: ${widget.phoneNumber}',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -119,6 +149,11 @@ class _PaymentOtpScreenState extends State<PaymentOtpScreen> {
                     child: TextField(
                       controller: _codeController,
                       keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.displayMedium,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _confirm(),
                       maxLength: 4,
                       decoration: const InputDecoration(counterText: ''),
                     ),
@@ -136,6 +171,11 @@ class _PaymentOtpScreenState extends State<PaymentOtpScreen> {
                   Center(
                     child: TextButton(
                       onPressed: _resend,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        foregroundColor: AppColors.accent,
+                        textStyle: AppTypography.labelMedium,
+                      ),
                       child: const Text(Strings.resendCodeButton),
                     ),
                   ),
