@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_shapes.dart';
 import '../theme/app_typography.dart';
 
 enum StatusTone { success, warning, danger, neutral }
@@ -29,7 +28,10 @@ _ToneColors _toneColors(StatusTone tone) {
         AppColors.onDangerContainer,
       );
     case StatusTone.neutral:
-      return const _ToneColors(Color(0xFFE2E8F0), AppColors.textSecondary);
+      return const _ToneColors(
+        AppColors.neutralContainer,
+        AppColors.textSecondary,
+      );
   }
 }
 
@@ -63,7 +65,7 @@ class StatusChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.container,
-        borderRadius: AppShapes.small,
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

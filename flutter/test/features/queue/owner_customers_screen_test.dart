@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:raghif/core/i18n/strings.dart';
+import 'package:raghif/core/theme/app_theme.dart';
 import 'package:raghif/domain/models/user_model.dart';
 import 'package:raghif/features/auth/bloc/auth_bloc.dart';
 import 'package:raghif/features/auth/demo_accounts.dart';
@@ -41,6 +42,57 @@ Future<_TestEnv> _buildTestEnv({String actingAs = seededOwnerId}) async {
 }
 
 void main() {
+  for (final size in [const Size(320, 640), const Size(640, 320)]) {
+    testWidgets('customer metadata scrolls at $size with large text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final env = await _buildTestEnv();
+      env.repo.addUser(
+        'long-name',
+        name: 'أحمد محمد محمود عبد الرحمن النجار',
+        phone: '0599999999',
+        nationalId: '900999999',
+      );
+      env.repo.givenPurchase(
+        userId: 'long-name',
+        storeId: seededStoreId,
+        date: '2026-09-02',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(1.5)),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
+          ),
+          home: OwnerCustomersScreen(
+            controller: env.controller,
+            storeId: seededStoreId,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text(Strings.totalPurchasesCount(1)),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(Strings.lastPurchaseDate('2026-09-02')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      env.controller.dispose();
+      env.repo.dispose();
+    });
+  }
+
   group('OwnerCustomersScreen', () {
     testWidgets('displays empty state when no purchases exist', (tester) async {
       final env = await _buildTestEnv();

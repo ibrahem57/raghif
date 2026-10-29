@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/i18n/strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_shapes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/status_chip.dart';
+import '../../core/widgets/offline_notice.dart';
 import '../auth/demo_accounts.dart';
 import '../../domain/models/purchase_model.dart';
 import '../../domain/models/store_list_entry.dart';
@@ -28,10 +30,14 @@ class StoreListScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.currentUser,
+    this.governorate,
+    this.initialArea,
   });
 
   final QueueController controller;
   final DemoUser currentUser;
+  final String? governorate;
+  final String? initialArea;
 
   @override
   State<StoreListScreen> createState() => _StoreListScreenState();
@@ -45,6 +51,7 @@ class _StoreListScreenState extends State<StoreListScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedArea = widget.initialArea;
     // The controller owns the watch (no stream lifecycle in the widget), so
     // rebuilds arrive through listenable updates.
     widget.controller.watchStoreListFor(widget.currentUser.id);
@@ -57,11 +64,33 @@ class _StoreListScreenState extends State<StoreListScreen> {
   }
 
   @override
+  void didUpdateWidget(StoreListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentUser.id != widget.currentUser.id) {
+      _searchController.clear();
+      _query = '';
+      _selectedArea = widget.initialArea;
+      widget.controller.watchStoreListFor(widget.currentUser.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final today = todayDateString();
     return Scaffold(
       appBar: AppBar(
-        title: Text(Strings.storeListTitle),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/images/stitch_loaf.svg',
+              width: 36,
+              height: 36,
+            ),
+            const SizedBox(width: 8),
+            const Text(Strings.appTitle),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -73,11 +102,28 @@ class _StoreListScreenState extends State<StoreListScreen> {
       body: ListenableBuilder(
         listenable: widget.controller,
         builder: (context, _) {
-          final all = widget.controller.storeList;
+          if (widget.controller.storeListFailed) {
+            return SingleChildScrollView(
+              child: OfflineNotice(
+                onRetry: () =>
+                    widget.controller.watchStoreListFor(widget.currentUser.id),
+              ),
+            );
+          }
+          if (!widget.controller.storeListLoaded) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final all = filterStoreEntries(
+            widget.controller.storeList,
+            governorate: widget.governorate,
+          );
           final areas = areasOf(all);
           // A selected area can disappear if its last store is removed —
           // fall back to "all" rather than showing an empty list.
-          final area = _selectedArea != null && areas.contains(_selectedArea)
+          final area =
+              _selectedArea != null &&
+                  (areas.contains(_selectedArea) ||
+                      widget.initialArea == _selectedArea)
               ? _selectedArea
               : null;
           final visible = sortStoreEntries(
@@ -98,9 +144,35 @@ class _StoreListScreenState extends State<StoreListScreen> {
                         AppSpacing.md,
                         0,
                       ),
-                      child: Text(
-                        '${Strings.todayLabel}: $today',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            Strings.storeListTitle,
+                            style: Theme.of(context).textTheme.displayMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 20,
+                                color: AppColors.textSecondary,
+                              ),
+                              Text(
+                                area ?? 'المناطق المتاحة',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              Text(
+                                '${Strings.todayLabel}: $today',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     Padding(
@@ -113,10 +185,19 @@ class _StoreListScreenState extends State<StoreListScreen> {
                       child: TextField(
                         controller: _searchController,
                         onChanged: (value) => setState(() => _query = value),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: Strings.storeSearchHint,
-                          prefixIcon: Icon(Icons.search),
-                          isDense: true,
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'مسح البحث',
+                                  onPressed: () => setState(() {
+                                    _searchController.clear();
+                                    _query = '';
+                                  }),
+                                  icon: const Icon(Icons.close),
+                                ),
                         ),
                       ),
                     ),
@@ -261,109 +342,155 @@ class _StoreCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final available = store.isAvailable;
 
-    return InkWell(
+    return AppCard(
       onTap: onTap,
-      borderRadius: AppShapes.large,
-      child: AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.storefront,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
                   color: available
-                      ? Theme.of(context).colorScheme.primary
+                      ? AppColors.accentContainer
+                      : AppColors.neutralContainer,
+                  borderRadius: AppShapes.medium,
+                ),
+                child: Icon(
+                  Icons.storefront_outlined,
+                  color: available ? AppColors.bread : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: Text(store.name, style: textTheme.titleMedium)),
+              const SizedBox(width: AppSpacing.xs),
+              IconButton(
+                icon: Icon(
+                  entry.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: entry.pinned
+                      ? AppColors.accent
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text(store.name, style: textTheme.titleMedium)),
-                // A closed bakery is not the same as one that sold out —
-                // saying "نفدت الكمية" for a store that never opened today
-                // reads as a stock problem the owner caused.
-                StatusChip(
-                  text: available
-                      ? Strings.available
-                      : store.isOpen
-                      ? Strings.soldOut
-                      : Strings.storeClosedBadge,
-                  tone: available
-                      ? StatusTone.success
-                      : store.isOpen
-                      ? StatusTone.danger
-                      : StatusTone.neutral,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                IconButton(
-                  icon: Icon(
-                    entry.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    color: entry.pinned
-                        ? AppColors.accent
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  tooltip: entry.pinned ? Strings.unpinStore : Strings.pinStore,
-                  onPressed: onTogglePin,
-                ),
-              ],
-            ),
-            if (store.area.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                store.area,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                tooltip: entry.pinned ? Strings.unpinStore : Strings.pinStore,
+                onPressed: onTogglePin,
               ),
             ],
-            if (entry.isFamiliar) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                children: [
+          ),
+          if (store.area.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              store.area,
+              style: textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: StatusChip(
+              text: available
+                  ? Strings.available
+                  : store.isOpen
+                  ? Strings.soldOut
+                  : Strings.storeClosedBadge,
+              tone: available
+                  ? StatusTone.success
+                  : store.isOpen
+                  ? StatusTone.danger
+                  : StatusTone.neutral,
+              icon: available ? Icons.check_circle_outline : Icons.info_outline,
+            ),
+          ),
+          if (entry.isFamiliar) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                StatusChip(
+                  text: Strings.myStoreBadge,
+                  tone: StatusTone.neutral,
+                ),
+                if (entry.hasOrderToday) ...[
                   StatusChip(
-                    text: Strings.myStoreBadge,
+                    text: _orderLabel(entry.todayStatus!),
+                    tone: _orderTone(entry.todayStatus!),
+                  ),
+                  const StatusChip(
+                    text: Strings.paidBadge,
+                    tone: StatusTone.success,
+                  ),
+                ],
+                if (entry.lastPurchaseDate != null)
+                  StatusChip(
+                    text: Strings.lastPurchaseFrom(
+                      purchaseDateLabel(entry.lastPurchaseDate!, today),
+                    ),
                     tone: StatusTone.neutral,
                   ),
-                  if (entry.hasOrderToday) ...[
-                    StatusChip(
-                      text: _orderLabel(entry.todayStatus!),
-                      tone: _orderTone(entry.todayStatus!),
-                    ),
-                    const StatusChip(
-                      text: Strings.paidBadge,
-                      tone: StatusTone.success,
+              ],
+            ),
+          ],
+          if (available) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warmSurface,
+                borderRadius: AppShapes.medium,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 20,
+                        color: AppColors.bread,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          Strings.bagsRemaining(
+                            store.bagsRemaining,
+                            store.dailyBagLimit,
+                          ),
+                          style: textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (store.hasPurchaseWindow) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_outlined,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            Strings.purchaseWindowRange(
+                              store.openTime!,
+                              store.closeTime!,
+                            ),
+                            style: textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  if (entry.lastPurchaseDate != null)
-                    StatusChip(
-                      text: Strings.lastPurchaseFrom(
-                        purchaseDateLabel(entry.lastPurchaseDate!, today),
-                      ),
-                      tone: StatusTone.neutral,
-                    ),
                 ],
               ),
-            ],
-            if (available) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                Strings.bagsRemaining(store.bagsRemaining, store.dailyBagLimit),
-                style: textTheme.bodyMedium,
-              ),
-              if (store.hasPurchaseWindow) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  Strings.purchaseWindowRange(
-                    store.openTime!,
-                    store.closeTime!,
-                  ),
-                  style: textTheme.bodyMedium,
-                ),
-              ],
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

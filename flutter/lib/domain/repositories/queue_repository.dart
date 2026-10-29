@@ -31,6 +31,11 @@ class BackendUnavailableException implements Exception {
 ///
 /// Ids are Supabase UUIDs throughout: the same string identifies a row on
 /// the device, on the server and inside a QR code.
+class PostponeRejectedException implements Exception {
+  const PostponeRejectedException(this.reason);
+  final String reason;
+}
+
 abstract class QueueRepository {
   /// Pulls the current server state into the cache. Safe to call often;
   /// swallows connection errors, since reads are allowed to be stale.
@@ -81,6 +86,12 @@ abstract class QueueRepository {
   /// This buyer's order for [date], if any — the one-bag-per-day rule made
   /// visible. Authoritative check happens server-side on reserve.
   Future<PurchaseModel?> getBlockingPurchase(String userId, String date);
+
+  /// Today's booking, otherwise the earliest future uncollected booking.
+  Future<PurchaseModel?> currentOrUpcomingPurchase(String userId, String today);
+
+  /// Moves the signed-in buyer's eligible booking to tomorrow, atomically.
+  Future<PurchaseModel> postponePurchase(String purchaseId);
 
   Future<PurchaseModel?> getPurchaseById(String purchaseId);
 

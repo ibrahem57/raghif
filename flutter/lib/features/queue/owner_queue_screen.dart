@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/i18n/strings.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/offline_notice.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/number_stepper.dart';
 import '../../core/widgets/primary_button.dart';
@@ -13,9 +15,8 @@ import 'queue_controller.dart';
 import 'queue_logic.dart';
 import 'write_guard.dart';
 
-/// UI_SPEC.md OwnerQueueScreen: batch grouping via section headers (not
-/// color-only banding), sticky Notify button that's removed rather than
-/// disabled once nobody is left to notify.
+/// Batch headers retain labelled progress. The notify action stays pinned
+/// when height allows and scrolls with content in compact windows.
 ///
 /// Pickup additions: buyer rows carry national ID + phone, a live filter
 /// finds a buyer by ID/phone suffix, and an AppBar scan action opens the QR
@@ -82,6 +83,7 @@ class _OwnerQueueScreenState extends State<OwnerQueueScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(Strings.notifyConfirmTitle),
+        scrollable: true,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,6 +127,9 @@ class _OwnerQueueScreenState extends State<OwnerQueueScreen> {
     final searching = _query.trim().isNotEmpty;
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: MediaQuery.textScalerOf(context).scale(20) > 26
+            ? 96
+            : 64,
         title: Text(Strings.buyerQueueTitle),
         actions: [
           IconButton(
@@ -154,146 +159,153 @@ class _OwnerQueueScreenState extends State<OwnerQueueScreen> {
           // while searching so a lookup can't accidentally release a batch.
           final nextBatch = searching ? null : nextBatchToNotify(queue);
 
+          final entries = <Widget>[
+            AppCard(
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: AppColors.background,
+                    foregroundColor: AppColors.accent,
+                    child: Icon(Icons.bakery_dining_outlined),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      store?.name ?? '',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (store != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _BatchSizeControl(
+                controller: widget.controller,
+                storeId: widget.storeId,
+                store: store,
+                date: date,
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _search,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                hintText: Strings.searchBuyerHint,
+                prefixIcon: Icon(Icons.search),
+                filled: true,
+                fillColor: AppColors.surface,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (snapshot.hasError)
+              const OfflineNotice()
+            else if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData)
+              const Center(child: CircularProgressIndicator())
+            else if (queue.isEmpty || visible.isEmpty)
+              AppCard(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.people_outline,
+                      color: AppColors.accent,
+                      size: 40,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      queue.isEmpty
+                          ? Strings.queueEmpty
+                          : Strings.buyerSearchNoResults,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
+              ),
+            for (final batch in batchNumbers) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      Strings.batchLabel(batch),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (progress[batch] != null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        Strings.batchSummary(
+                          progress[batch]!.picked,
+                          progress[batch]!.awaitingPickup,
+                          progress[batch]!.waiting,
+                        ),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              for (final purchase in grouped[batch]!)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: _BuyerRow(
+                    purchase: purchase,
+                    onToggleArrival: () => guardWrite(
+                      context,
+                      () => widget.controller.collectPurchase(purchase.id),
+                    ),
+                  ),
+                ),
+            ],
+          ];
+          final notify = nextBatch == null
+              ? null
+              : PrimaryButton(
+                  text: Strings.notifyNextBatch(nextBatch),
+                  onPressed: () => _confirmNotify(nextBatch, queue, date),
+                );
           return SafeArea(
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.md,
-                        AppSpacing.md,
-                        0,
-                      ),
-                      child: Text(
-                        store?.name ?? '',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                    if (store != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          AppSpacing.sm,
-                          AppSpacing.md,
-                          0,
-                        ),
-                        child: _BatchSizeControl(
-                          controller: widget.controller,
-                          storeId: widget.storeId,
-                          store: store,
-                          date: date,
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                        AppSpacing.md,
-                        0,
-                      ),
-                      child: TextField(
-                        controller: _search,
-                        onChanged: (value) => setState(() => _query = value),
-                        decoration: InputDecoration(
-                          hintText: Strings.searchBuyerHint,
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Expanded(
-                      child: queue.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                child: Text(
-                                  Strings.queueEmpty,
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                ),
-                              ),
-                            )
-                          : visible.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                child: Text(
-                                  Strings.buyerSearchNoResults,
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                ),
-                              ),
-                            )
-                          : ListView(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
-                              ),
-                              children: [
-                                for (final batch in batchNumbers) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.sm,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact =
+                        constraints.maxHeight < 460 ||
+                        MediaQuery.textScalerOf(context).scale(15) > 20;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: ListView.builder(
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            itemCount:
+                                entries.length +
+                                (compact && notify != null ? 1 : 0),
+                            itemBuilder: (context, index) =>
+                                index < entries.length
+                                ? entries[index]
+                                : Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: AppSpacing.md,
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          Strings.batchLabel(batch),
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
-                                        ),
-                                        if (progress[batch] != null) ...[
-                                          const SizedBox(height: AppSpacing.xs),
-                                          Text(
-                                            Strings.batchSummary(
-                                              progress[batch]!.picked,
-                                              progress[batch]!.awaitingPickup,
-                                              progress[batch]!.waiting,
-                                            ),
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.bodyMedium,
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                                    child: notify,
                                   ),
-                                  for (final purchase in grouped[batch]!) ...[
-                                    _BuyerRow(
-                                      purchase: purchase,
-                                      onToggleArrival: () => guardWrite(
-                                        context,
-                                        () => widget.controller.collectPurchase(
-                                          purchase.id,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.sm),
-                                  ],
-                                ],
-                              ],
-                            ),
-                    ),
-                    if (nextBatch != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          0,
-                          AppSpacing.md,
-                          AppSpacing.md,
+                          ),
                         ),
-                        child: PrimaryButton(
-                          text: Strings.notifyNextBatch(nextBatch),
-                          onPressed: () =>
-                              _confirmNotify(nextBatch, queue, date),
-                        ),
-                      ),
-                  ],
+                        if (notify != null && !compact)
+                          Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: notify,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -332,63 +344,59 @@ class _BuyerRow extends StatelessWidget {
     ].join('  ·  ');
 
     return AppCard(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  purchase.userName ??
-                      purchase.userPhone ??
-                      purchase.userId.toString(),
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  meta,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                // Wrap, not Row: the chip keeps its intrinsic width (Flexible
-                // was squeezing "تم الاستلام" onto two lines) and the time
-                // drops to the next line when the row runs out of space.
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                backgroundColor: AppColors.background,
+                foregroundColor: AppColors.accent,
+                child: Icon(Icons.person_outline),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    StatusChip(text: statusText, tone: tone),
                     Text(
-                      formatReadyTime(purchase.createdAtMillis),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      purchase.userName ??
+                          purchase.userPhone ??
+                          purchase.userId.toString(),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(meta, style: Theme.of(context).textTheme.bodyMedium),
+                    ],
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          if (purchase.status != PurchaseStatus.waiting)
-            // Flexible so this button yields width instead of squeezing the
-            // buyer info column (it overflowed notified/collected rows).
-            Flexible(
-              child: FilledButton(
-                onPressed: onToggleArrival,
-                child: Text(
-                  purchase.status == PurchaseStatus.notified
-                      ? Strings.markReceived
-                      : Strings.undoReceived,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              StatusChip(text: statusText, tone: tone),
+              Text(
+                formatReadyTime(purchase.createdAtMillis),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+          if (purchase.status != PurchaseStatus.waiting) ...[
+            const SizedBox(height: AppSpacing.sm),
+            SecondaryButton(
+              onPressed: onToggleArrival,
+              text: purchase.status == PurchaseStatus.notified
+                  ? Strings.markReceived
+                  : Strings.undoReceived,
             ),
+          ],
         ],
       ),
     );
@@ -415,32 +423,34 @@ class _BatchSizeControl extends StatefulWidget {
   State<_BatchSizeControl> createState() => _BatchSizeControlState();
 }
 
-class _BatchSizeControlState extends State<_BatchSizeControl> {
+class _BatchSizeControlState extends State<_BatchSizeControl>
+    with AutomaticKeepAliveClientMixin {
   late int _batchSize = widget.store.batchSize;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  Strings.batchSizeLabel,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-              NumberStepper(
-                value: _batchSize,
-                onChanged: (v) => setState(() => _batchSize = v),
-                decrementLabel: Strings.decreaseValue,
-                incrementLabel: Strings.increaseValue,
-                min: 1,
-              ),
-            ],
+          Text(
+            Strings.batchSizeLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: NumberStepper(
+              value: _batchSize,
+              onChanged: (v) => setState(() => _batchSize = v),
+              decrementLabel: Strings.decreaseValue,
+              incrementLabel: Strings.increaseValue,
+              min: 1,
+            ),
           ),
           if (_batchSize != widget.store.batchSize) ...[
             const SizedBox(height: AppSpacing.sm),

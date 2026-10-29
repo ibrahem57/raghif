@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_shapes.dart';
 import '../theme/app_typography.dart';
 
 /// Outlined, not filled — a solid second button would compete visually with
@@ -17,8 +16,9 @@ class SecondaryButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(56),
-        shape: const RoundedRectangleBorder(borderRadius: AppShapes.medium),
-        side: const BorderSide(color: AppColors.accent, width: 1.5),
+        shape: const StadiumBorder(),
+        backgroundColor: AppColors.surface,
+        side: const BorderSide(color: AppColors.border),
         foregroundColor: AppColors.accent,
         textStyle: AppTypography.labelLarge.copyWith(color: AppColors.accent),
       ),

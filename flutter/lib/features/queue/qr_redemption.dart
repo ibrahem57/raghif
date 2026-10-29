@@ -6,6 +6,9 @@ enum QrRedemptionOutcome {
   /// Purchase found, notified, arrival toggled by the caller — bag handed over.
   checkedIn,
 
+  /// The booking moved to a different date; its old QR is invalid.
+  staleReceipt,
+
   /// Already marked collected earlier — duplicate scan.
   alreadyCollected,
 
@@ -72,6 +75,15 @@ QrRedemptionResult evaluateQrRedemption({
   if (purchase.storeId != ownerStoreId) {
     return QrRedemptionResult(
       outcome: QrRedemptionOutcome.wrongStore,
+      payload: payload,
+      purchase: purchase,
+    );
+  }
+
+  if (payload.purchaseId != purchase.id ||
+      payload.purchaseDate != purchase.purchaseDate) {
+    return QrRedemptionResult(
+      outcome: QrRedemptionOutcome.staleReceipt,
       payload: payload,
       purchase: purchase,
     );

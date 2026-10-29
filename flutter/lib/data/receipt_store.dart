@@ -12,8 +12,22 @@ import '../domain/models/purchase_model.dart';
 class ReceiptStore {
   static const _key = 'receipt.latest';
 
-  Future<void> save(PurchaseModel p) async {
+  Future<void> _pendingSave = Future.value();
+
+  Future<void> save(PurchaseModel p) {
+    final write = _pendingSave.catchError((Object _) {}).then((_) => _save(p));
+    _pendingSave = write;
+    return write;
+  }
+
+  Future<void> _save(PurchaseModel p) async {
     final prefs = await SharedPreferences.getInstance();
+    // An older in-flight read must not overwrite a moved receipt.
+    final previous = await load();
+    if (previous?.id == p.id &&
+        previous!.postponementCount > p.postponementCount) {
+      return;
+    }
     await prefs.setString(
       _key,
       jsonEncode({
@@ -28,6 +42,7 @@ class ReceiptStore {
         'userPhone': p.userPhone,
         'userNationalId': p.userNationalId,
         'storeName': p.storeName,
+        'postponementCount': p.postponementCount,
       }),
     );
   }
@@ -50,6 +65,7 @@ class ReceiptStore {
         userPhone: j['userPhone'] as String?,
         userNationalId: j['userNationalId'] as String?,
         storeName: j['storeName'] as String?,
+        postponementCount: (j['postponementCount'] as int?) ?? 0,
       );
     } catch (_) {
       return null;

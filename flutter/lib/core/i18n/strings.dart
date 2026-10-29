@@ -43,15 +43,15 @@ class Strings {
   static const onboardingNext = 'التالي';
   static const onboardingGetStarted = 'إنشاء حساب';
   static const onboardingHaveAccount = 'لدي حساب بالفعل';
-  static const onboardingTitle1 = 'احجز خبزك من البيت';
+  static const onboardingTitle1 = 'خبزك أقرب إلك';
   static const onboardingBody1 =
-      'اطلب كيس الخبز اليومي من أي مخبز قريب منك، دون الحاجة للوقوف في طابور طويل.';
-  static const onboardingTitle2 = 'استلم إشعارك عند الجاهزية';
+      'اعرف نقاط توزيع الخبز القريبة منك.';
+  static const onboardingTitle2 = 'احجز ربطتك';
   static const onboardingBody2 =
-      'بمجرد أن يحين دورك، سنرسل لك إشعاراً لتستلم طلبك من المخبز مباشرة.';
-  static const onboardingTitle3 = 'تحقق من حسابك للشراء';
+      'اختار نقطة التوزيع واحجز بسهولة.';
+  static const onboardingTitle3 = 'استلم بوقتك';
   static const onboardingBody3 =
-      'أكمل التسجيل وتحقق من هويتك — كيس واحد لكل بطاقة هوية يومياً.';
+      'بنبلغك أول ما ييجي دورك.';
 
   /// "الصفحة 2 من 3" — the counter above the intro, so how many steps are left
   /// is readable without counting dots. Western digits, like the rest of the

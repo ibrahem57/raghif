@@ -93,6 +93,16 @@ flutter:
     - .env
 
   fonts:
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
     - family: NotoSansArabic
       fonts:
         - asset: assets/fonts/NotoSansArabic-VariableFont.ttf
@@ -112,10 +122,5 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0369A1"
   adaptive_icon_foreground: "assets/images/app_icon.png"
 
-flutter_native_splash:
-  color: "#0068E9"
-  image: assets/images/splash_logo.png
-  android_12:
-    color: "#0068E9"
-    icon_background_color: "#0068E9"
-    image: assets/images/splash_icon_android12.png
+# The native launch resources are maintained in android/app/src/main/res
+# with the Stitch vector emblem; the interactive screen lives in main.dart.

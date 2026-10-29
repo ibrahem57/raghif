@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/i18n/strings.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/secondary_button.dart';
@@ -13,9 +14,7 @@ import 'confirmation_screen.dart';
 import 'queue_controller.dart';
 import 'queue_logic.dart';
 
-/// UI_SPEC.md PurchaseScreen: store name + price hero, single prominent Buy
-/// button, no secondary actions competing for attention — "back" is the only
-/// other affordance, and it's visually secondary.
+/// Stitch booking summary with the existing payment and daily-limit flow.
 class PurchaseScreen extends StatefulWidget {
   const PurchaseScreen({
     super.key,
@@ -151,8 +150,9 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text(Strings.purchaseTitle)),
+      appBar: AppBar(title: const Text(Strings.purchaseTitle)),
       body: SafeArea(
         child: ListenableBuilder(
           listenable: widget.controller,
@@ -160,153 +160,210 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
             final store = widget.controller.storeById(widget.storeId);
             final isAvailable = store?.isAvailable ?? false;
             final blocker = _blocker;
-
-            return Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppCard(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            AppCard(
+                            const _SummaryIcon(
+                              icon: Icons.shopping_bag_outlined,
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.storefront,
-                                              color: isAvailable
-                                                  ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary
-                                                  : Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                            ),
-                                            const SizedBox(
-                                              width: AppSpacing.sm,
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                store?.name ?? '',
-                                                style: Theme.of(
-                                                  context,
-                                                ).textTheme.titleLarge,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.sm),
-                                      StatusChip(
-                                        text: isAvailable
-                                            ? Strings.available
-                                            : Strings.soldOut,
-                                        tone: isAvailable
-                                            ? StatusTone.success
-                                            : StatusTone.danger,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
                                   Text(
-                                    Strings.bagsRemaining(
-                                      store?.bagsRemaining ?? 0,
-                                      store?.dailyBagLimit ?? 0,
-                                    ),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
+                                    'راجع حجزك',
+                                    style: textTheme.titleLarge,
                                   ),
-                                  if (store?.hasPurchaseWindow ?? false) ...[
-                                    const SizedBox(height: AppSpacing.xs),
-                                    Text(
-                                      Strings.purchaseWindowRange(
-                                        store!.openTime!,
-                                        store.closeTime!,
-                                      ),
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodyMedium,
-                                    ),
-                                  ],
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Text(
+                                    'تأكد من المخبز قبل متابعة الدفع.',
+                                    style: textTheme.bodyMedium,
+                                  ),
                                 ],
                               ),
                             ),
-                            if (blocker != null) ...[
-                              const SizedBox(height: AppSpacing.lg),
-                              AppCard(
-                                child: Text(
-                                  blocker.storeId == widget.storeId
-                                      ? Strings.dailyLimitReached
-                                      : Strings.dailyLimitReachedOtherStore(
-                                          blocker.storeName ??
-                                              widget.controller
-                                                  .storeById(blocker.storeId)
-                                                  ?.name ??
-                                              '',
-                                        ),
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    0,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 480),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (blocker != null)
-                            PrimaryButton(
-                              text: Strings.viewOrder,
-                              onPressed: () => _goToConfirmation(blocker.id),
-                            )
-                          else
-                            PrimaryButton(
-                              text: Strings.payButton,
-                              loading: _isPaying,
-                              onPressed: _startPaymentFlow,
+                      const SizedBox(height: AppSpacing.lg),
+                      AppCard(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _SummaryIcon(
+                                  icon: Icons.storefront_outlined,
+                                ),
+                                const SizedBox(width: AppSpacing.md),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'مخبز الاستلام',
+                                        style: textTheme.bodyMedium,
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        store?.name ?? '',
+                                        style: textTheme.titleLarge,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          const SizedBox(height: AppSpacing.sm),
-                          SecondaryButton(
-                            text: Strings.back,
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
+                            const SizedBox(height: AppSpacing.md),
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: StatusChip(
+                                text: isAvailable
+                                    ? Strings.available
+                                    : Strings.soldOut,
+                                tone: isAvailable
+                                    ? StatusTone.success
+                                    : StatusTone.danger,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              Strings.bagsRemaining(
+                                store?.bagsRemaining ?? 0,
+                                store?.dailyBagLimit ?? 0,
+                              ),
+                              style: textTheme.bodyLarge,
+                            ),
+                            if (store?.hasPurchaseWindow ?? false) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                Strings.purchaseWindowRange(
+                                  store!.openTime!,
+                                  store.closeTime!,
+                                ),
+                                style: textTheme.bodyMedium,
+                              ),
+                            ],
+                            const Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: AppSpacing.lg,
+                              ),
+                              child: Divider(
+                                height: 1,
+                                color: AppColors.border,
+                              ),
+                            ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Image.asset(
+                                'assets/images/stitch_bread.png',
+                                height: 152,
+                                fit: BoxFit.cover,
+                                excludeFromSemantics: true,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.lg),
+                      if (blocker != null)
+                        AppCard(
+                          child: Text(
+                            blocker.storeId == widget.storeId
+                                ? Strings.dailyLimitReached
+                                : Strings.dailyLimitReachedOtherStore(
+                                    blocker.storeName ??
+                                        widget.controller
+                                            .storeById(blocker.storeId)
+                                            ?.name ??
+                                        '',
+                                  ),
+                            style: textTheme.titleMedium,
+                          ),
+                        )
+                      else
+                        AppCard(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _SummaryIcon(
+                                icon: Icons.account_balance_wallet_outlined,
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'الدفع عبر جوال باي',
+                                      style: textTheme.titleMedium,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      'ستؤكد رقم المحفظة ورمز الدفع في الخطوة التالية.',
+                                      style: textTheme.bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: AppSpacing.lg),
+                      if (blocker != null)
+                        PrimaryButton(
+                          text: Strings.viewOrder,
+                          onPressed: () => _goToConfirmation(blocker.id),
+                        )
+                      else
+                        PrimaryButton(
+                          text: Strings.payButton,
+                          loading: _isPaying,
+                          onPressed: _startPaymentFlow,
+                        ),
+                      const SizedBox(height: AppSpacing.sm),
+                      SecondaryButton(
+                        text: Strings.back,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             );
           },
         ),
       ),
     );
   }
+}
+
+class _SummaryIcon extends StatelessWidget {
+  const _SummaryIcon({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.accentContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Icon(icon, size: 26, color: AppColors.accent),
+    ),
+  );
 }

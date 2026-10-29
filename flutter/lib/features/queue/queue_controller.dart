@@ -20,7 +20,7 @@ import 'queue_logic.dart';
 /// server.
 class QueueController extends ChangeNotifier {
   QueueController([QueueRepository? repository])
-      : _repository = repository ?? sl<QueueRepository>() {
+    : _repository = repository ?? sl<QueueRepository>() {
     _init();
   }
 
@@ -28,6 +28,15 @@ class QueueController extends ChangeNotifier {
   StreamSubscription<List<StoreModel>>? _storesSub;
   List<StoreModel> _stores = [];
   bool _storesLoaded = false;
+  bool _storesFailed = false;
+  bool _disposed = false;
+  int _storesRequest = 0;
+  int _storeListGeneration = 0;
+  int _queueGeneration = 0;
+  int _sessionGeneration = 0;
+  String? _storeListUser;
+  bool _storeListLoaded = false;
+  bool _storeListFailed = false;
   StreamSubscription<List<StoreListEntry>>? _storeListSub;
   List<StoreListEntry> _storeList = [];
   StreamSubscription<List<PurchaseModel>>? _todayQueueSub;
@@ -40,13 +49,57 @@ class QueueController extends ChangeNotifier {
   /// that seed local edit state "once on load" should gate on this rather
   /// than on an empty list, which is also the pre-load state.
   bool get storesLoaded => _storesLoaded;
+  bool get storesFailed => _storesFailed;
+  bool get storeListLoaded => _storeListLoaded;
+  bool get storeListFailed => _storeListFailed;
 
-  void _init() {
-    _storesSub = _repository.watchStores().listen((stores) {
+  Future<void> refreshStores() async {
+    final request = ++_storesRequest;
+    _storesFailed = false;
+    if (!_disposed) notifyListeners();
+    try {
+      final stores = await _repository.getStores();
+      if (_disposed || request != _storesRequest) return;
       _stores = stores;
       _storesLoaded = true;
-      notifyListeners();
-    });
+    } catch (_) {
+      if (_disposed || request != _storesRequest) return;
+      _storesFailed = true;
+    }
+    if (!_disposed) notifyListeners();
+    await _repository.refresh();
+  }
+
+  void resetForSession() {
+    _sessionGeneration++;
+    _storeListGeneration++;
+    _queueGeneration++;
+    _storeListSub?.cancel();
+    _todayQueueSub?.cancel();
+    _storeListUser = null;
+    _storeList = [];
+    _storeListLoaded = false;
+    _storeListFailed = false;
+    _todayQueue = [];
+    _purchaseCache.clear();
+    if (!_disposed) notifyListeners();
+  }
+
+  void _init() {
+    _storesSub = _repository.watchStores().listen(
+      (stores) {
+        _stores = stores;
+        _storesLoaded = true;
+        _storesFailed = false;
+        notifyListeners();
+      },
+      onError: (_) {
+        if (!_disposed) {
+          _storesFailed = true;
+          notifyListeners();
+        }
+      },
+    );
   }
 
   StoreModel? storeById(String? id) {
@@ -73,13 +126,30 @@ class QueueController extends ChangeNotifier {
   /// Points the store-list watch at [userId]. Safe to call again if the user
   /// changes — the old watch is dropped.
   void watchStoreListFor(String userId) {
+    final generation = ++_storeListGeneration;
+    if (_storeListUser != userId) {
+      _storeList = [];
+      _storeListLoaded = false;
+    }
+    _storeListUser = userId;
+    _storeListFailed = false;
     _storeListSub?.cancel();
     _storeListSub = _repository
         .watchStoreListForUser(userId: userId, today: todayDateString())
-        .listen((entries) {
-      _storeList = entries;
-      notifyListeners();
-    });
+        .listen(
+          (entries) {
+            if (_disposed || generation != _storeListGeneration) return;
+            _storeList = entries;
+            _storeListLoaded = true;
+            _storeListFailed = false;
+            notifyListeners();
+          },
+          onError: (_) {
+            if (_disposed || generation != _storeListGeneration) return;
+            _storeListFailed = true;
+            notifyListeners();
+          },
+        );
   }
 
   Future<void> setStorePinned(
@@ -116,8 +186,7 @@ class QueueController extends ChangeNotifier {
   Future<List<ScanEventModel>> scansForStore(
     String storeId, {
     int limit = 100,
-  }) =>
-      _repository.getScansForStore(storeId, limit: limit);
+  }) => _repository.getScansForStore(storeId, limit: limit);
 
   Stream<PurchaseModel?> watchPurchase(String id) =>
       _repository.watchPurchaseById(id);
@@ -129,13 +198,15 @@ class QueueController extends ChangeNotifier {
 
   /// Points the dashboard's today-queue watch at [storeId].
   void watchTodayQueueFor(String storeId) {
+    final generation = ++_queueGeneration;
     _todayQueueSub?.cancel();
     _todayQueueSub = _repository
         .watchQueueForStore(storeId, todayDateString())
         .listen((queue) {
-      _todayQueue = queue;
-      notifyListeners();
-    });
+          if (_disposed || generation != _queueGeneration) return;
+          _todayQueue = queue;
+          notifyListeners();
+        }, onError: (_) {});
   }
 
   Stream<List<PurchaseModel>> watchQueueForStore(String storeId, String date) =>
@@ -148,6 +219,20 @@ class QueueController extends ChangeNotifier {
   Future<PurchaseModel?> blockingPurchaseFor(String userId, String date) =>
       _repository.getBlockingPurchase(userId, date);
 
+  Future<PurchaseModel?> currentOrUpcomingPurchase(
+    String userId,
+    String today,
+  ) => _repository.currentOrUpcomingPurchase(userId, today);
+
+  Future<PurchaseModel> postponePurchase(String purchaseId) async {
+    final session = _sessionGeneration;
+    final purchase = await _repository.postponePurchase(purchaseId);
+    if (_disposed || session != _sessionGeneration) return purchase;
+    _purchaseCache[purchase.id] = purchase;
+    notifyListeners();
+    return purchase;
+  }
+
   /// Reserves a bag at [storeId]. The buyer comes from the session
   /// server-side. Throws [StoreSoldOutException] if Postgres says the store
   /// has none left, or [BackendUnavailableException] if it couldn't be
@@ -156,10 +241,9 @@ class QueueController extends ChangeNotifier {
     required String storeId,
     required String date,
   }) async {
-    final purchase = await _repository.reserveBag(
-      storeId: storeId,
-      date: date,
-    );
+    final session = _sessionGeneration;
+    final purchase = await _repository.reserveBag(storeId: storeId, date: date);
+    if (_disposed || session != _sessionGeneration) return purchase;
     _purchaseCache[purchase.id] = purchase;
     notifyListeners();
     // The "purchase confirmed" push is sent by the backend (notify-batch).
@@ -223,14 +307,17 @@ class QueueController extends ChangeNotifier {
   Future<List<StoreDaySummary>> dailySummariesForStore(
     String storeId, {
     int limit = 30,
-  }) =>
-      _repository.getDailySummaries(storeId, limit: limit);
+  }) => _repository.getDailySummaries(storeId, limit: limit);
 
   Future<List<CustomerSummaryModel>> getCustomersForStore(String storeId) =>
       _repository.getCustomersForStore(storeId);
 
   @override
   void dispose() {
+    _disposed = true;
+    _storeListGeneration++;
+    _queueGeneration++;
+    _storesRequest++;
     _storesSub?.cancel();
     _storeListSub?.cancel();
     _todayQueueSub?.cancel();

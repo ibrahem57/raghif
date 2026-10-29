@@ -35,6 +35,7 @@ void main() {
         expect(find.text(Strings.proceedToOtp), findsOneWidget);
 
         // 2. Tap proceed to OTP
+        await tester.ensureVisible(find.text(Strings.proceedToOtp));
         await tester.tap(find.text(Strings.proceedToOtp));
         await tester.pumpAndSettle();
 
@@ -45,6 +46,7 @@ void main() {
 
         // 4. Enter wrong code and tap confirm payment
         await tester.enterText(find.byType(TextField), '0000');
+        await tester.ensureVisible(find.text(Strings.confirmPaymentButton));
         await tester.tap(find.text(Strings.confirmPaymentButton));
         await tester.pumpAndSettle();
 
@@ -54,6 +56,7 @@ void main() {
         expect(find.text(Strings.paymentSuccessTitle), findsNothing);
 
         // 5. Tap resend code — verifies same code is retained and error is cleared
+        await tester.ensureVisible(find.text(Strings.resendCodeButton));
         await tester.tap(find.text(Strings.resendCodeButton));
         await tester.pumpAndSettle();
         expect(find.text(Strings.demoOtpNotification('7391')), findsOneWidget);
@@ -61,6 +64,7 @@ void main() {
 
         // 6. Enter correct code and tap confirm payment
         await tester.enterText(find.byType(TextField), '7391');
+        await tester.ensureVisible(find.text(Strings.confirmPaymentButton));
         await tester.tap(find.text(Strings.confirmPaymentButton));
         await tester.pumpAndSettle();
 
@@ -79,6 +83,8 @@ void main() {
       await tester.pumpWidget(
         wrapWithMaterial(const PaymentNumberScreen(initialNumber: '')),
       );
+
+      await tester.ensureVisible(find.text(Strings.proceedToOtp));
 
       await tester.tap(find.text(Strings.proceedToOtp));
       await tester.pumpAndSettle();
@@ -129,6 +135,7 @@ void main() {
         expect(find.text(Strings.payButton), findsOneWidget);
 
         // Tap "ادفع 3 شيكل"
+        await tester.ensureVisible(find.text(Strings.payButton));
         await tester.tap(find.text(Strings.payButton));
         await tester.pumpAndSettle();
 
@@ -137,6 +144,7 @@ void main() {
         expect(find.text(Strings.proceedToOtp), findsOneWidget);
 
         // Tap proceed to OTP
+        await tester.ensureVisible(find.text(Strings.proceedToOtp));
         await tester.tap(find.text(Strings.proceedToOtp));
         await tester.pumpAndSettle();
 
@@ -154,6 +162,7 @@ void main() {
 
         // Enter OTP and confirm
         await tester.enterText(find.byType(TextField), otp);
+        await tester.ensureVisible(find.text(Strings.confirmPaymentButton));
         await tester.tap(find.text(Strings.confirmPaymentButton));
         await tester.pumpAndSettle();
 
@@ -161,6 +170,9 @@ void main() {
         expect(find.text(Strings.completeReservationButton), findsOneWidget);
 
         // Tap complete reservation
+        await tester.ensureVisible(
+          find.text(Strings.completeReservationButton),
+        );
         await tester.tap(find.text(Strings.completeReservationButton));
         // Pump to trigger pop cascade and the _pay() delayed future
         await tester.pump();
@@ -202,10 +214,12 @@ void main() {
       );
 
       // Tap "ادفع 3 شيكل"
+      await tester.ensureVisible(find.text(Strings.payButton));
       await tester.tap(find.text(Strings.payButton));
       await tester.pumpAndSettle();
 
       // On number screen, tap back
+      await tester.ensureVisible(find.text(Strings.back));
       await tester.tap(find.text(Strings.back));
       await tester.pumpAndSettle();
 

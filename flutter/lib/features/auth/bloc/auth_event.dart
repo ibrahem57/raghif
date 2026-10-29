@@ -21,10 +21,7 @@ class RequestOtpEvent extends AuthEvent {
 }
 
 class VerifyOtpEvent extends AuthEvent {
-  const VerifyOtpEvent({
-    required this.nationalId,
-    required this.otp,
-  });
+  const VerifyOtpEvent({required this.nationalId, required this.otp});
 
   final String nationalId;
   final String otp;
@@ -34,10 +31,7 @@ class VerifyOtpEvent extends AuthEvent {
 }
 
 class PinLoginRequestedEvent extends AuthEvent {
-  const PinLoginRequestedEvent({
-    required this.nationalId,
-    required this.pin,
-  });
+  const PinLoginRequestedEvent({required this.nationalId, required this.pin});
 
   final String nationalId;
   final String pin;
@@ -47,10 +41,7 @@ class PinLoginRequestedEvent extends AuthEvent {
 }
 
 class LoginRequestedEvent extends AuthEvent {
-  const LoginRequestedEvent({
-    required this.phone,
-    required this.pin,
-  });
+  const LoginRequestedEvent({required this.phone, required this.pin});
 
   final String phone;
   final String pin;
@@ -80,6 +71,21 @@ class RegisterRequestedEvent extends AuthEvent {
 
 class LogoutRequestedEvent extends AuthEvent {
   const LogoutRequestedEvent();
+}
+
+class UpdateProfileRequestedEvent extends AuthEvent {
+  const UpdateProfileRequestedEvent({
+    required this.name,
+    required this.phone,
+    required this.jawwalPayNumber,
+  });
+
+  final String name;
+  final String phone;
+  final String jawwalPayNumber;
+
+  @override
+  List<Object?> get props => [name, phone, jawwalPayNumber];
 }
 
 /// Mock verification approval — see WaitingForVerificationScreen. Real

@@ -1,10 +1,7 @@
 import '../models/user_model.dart';
 
 abstract class AuthRepository {
-  Future<UserModel?> login({
-    required String phone,
-    required String pin,
-  });
+  Future<UserModel?> login({required String phone, required String pin});
 
   Future<UserModel?> loginWithPin({
     required String nationalId,
@@ -48,9 +45,18 @@ abstract class AuthRepository {
     String? jawwalPayNumber,
   });
 
-  Future<void> updateVerificationStatus(String userId, VerificationStatus status);
+  Future<void> updateVerificationStatus(
+    String userId,
+    VerificationStatus status,
+  );
 
   Future<void> updateJawwalPayNumber(String userId, String jawwalPayNumber);
+
+  Future<UserModel> updateProfile({
+    required String name,
+    required String phone,
+    required String jawwalPayNumber,
+  });
 
   Future<void> logout();
 }

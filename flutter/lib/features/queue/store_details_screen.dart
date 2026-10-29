@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/i18n/strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_shapes.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/primary_button.dart';
@@ -85,12 +86,24 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
     final today = todayDateString();
     return Scaffold(
       appBar: AppBar(title: Text(Strings.storeDetailsTitle)),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) => PrimaryButton(
+              text: Strings.reserveBagButton,
+              onPressed: _entry.store.isAvailable ? _openPurchase : null,
+            ),
+          ),
+        ),
+      ),
       body: ListenableBuilder(
         listenable: widget.controller,
         builder: (context, _) {
           final entry = _entry;
           final store = entry.store;
-          final available = store.isAvailable;
 
           return SafeArea(
             child: Center(
@@ -99,6 +112,17 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: Image.asset(
+                        'assets/images/stitch_bread.png',
+                        height: 256,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     _IdentityCard(
                       entry: entry,
                       onTogglePin: () => guardWrite(
@@ -126,10 +150,6 @@ class _StoreDetailsScreenState extends State<StoreDetailsScreen> {
                       _HistoryCard(entry: entry, today: today),
                     ],
                     const SizedBox(height: AppSpacing.lg),
-                    PrimaryButton(
-                      text: Strings.reserveBagButton,
-                      onPressed: available ? _openPurchase : null,
-                    ),
                     const SizedBox(height: AppSpacing.md),
                   ],
                 ),
@@ -154,33 +174,36 @@ class _IdentityCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final available = store.isAvailable;
 
-    return AppCard(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.storefront,
-                color: available
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: AppSpacing.sm),
               Expanded(child: Text(store.name, style: textTheme.titleLarge)),
               StatusChip(
-                text: available ? Strings.available : Strings.soldOut,
+                text: available
+                    ? Strings.available
+                    : store.isOpen
+                    ? Strings.soldOut
+                    : Strings.storeClosedBadge,
                 tone: available ? StatusTone.success : StatusTone.danger,
               ),
             ],
           ),
           if (store.area.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              store.area,
-              style: textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: Text(store.area, style: textTheme.bodyMedium)),
+              ],
             ),
           ],
           const SizedBox(height: AppSpacing.sm),
@@ -216,17 +239,45 @@ class _AvailabilityCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (store.isAvailable) ...[
-            Text(
-              Strings.bagsRemaining(store.bagsRemaining, store.dailyBagLimit),
-              style: textTheme.bodyLarge,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow =
+                    constraints.maxWidth < 300 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                final stock = _AvailabilityTile(
+                  icon: Icons.bakery_dining_outlined,
+                  value: '${store.bagsRemaining}',
+                  label: Strings.bagsRemaining(
+                    store.bagsRemaining,
+                    store.dailyBagLimit,
+                  ),
+                  emphasis: true,
+                );
+                final window = _AvailabilityTile(
+                  icon: Icons.schedule,
+                  value: store.closeTime ?? '—',
+                  label: store.hasPurchaseWindow
+                      ? Strings.purchaseWindowRange(
+                          store.openTime!,
+                          store.closeTime!,
+                        )
+                      : 'مواعيد الحجز غير محددة',
+                );
+                return narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [stock, const SizedBox(height: 12), window],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: stock),
+                          const SizedBox(width: 12),
+                          Expanded(child: window),
+                        ],
+                      );
+              },
             ),
-            if (store.hasPurchaseWindow) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                Strings.purchaseWindowRange(store.openTime!, store.closeTime!),
-                style: textTheme.bodyMedium,
-              ),
-            ],
           ] else
             Text(
               store.isOpen ? Strings.soldOut : Strings.storeClosedLabel,
@@ -236,6 +287,50 @@ class _AvailabilityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AvailabilityTile extends StatelessWidget {
+  const _AvailabilityTile({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.emphasis = false,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final bool emphasis;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.warmSurface,
+      borderRadius: AppShapes.medium,
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(
+      children: [
+        Icon(icon, size: 24, color: AppColors.bread),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+            color: emphasis ? AppColors.accent : AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    ),
+  );
 }
 
 class _MyOrderCard extends StatelessWidget {

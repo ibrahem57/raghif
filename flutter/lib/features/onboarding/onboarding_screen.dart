@@ -8,27 +8,31 @@ import '../../core/widgets/secondary_button.dart';
 import '../auth/registration_screen.dart';
 
 class _Slide {
-  const _Slide(this.icon, this.title, this.body);
+  const _Slide(this.icon, this.title, this.body, this.badge);
   final IconData icon;
   final String title;
   final String body;
+  final String badge;
 }
 
 const _slides = [
   _Slide(
-    Icons.shopping_bag_outlined,
+    Icons.location_on_outlined,
     Strings.onboardingTitle1,
     Strings.onboardingBody1,
+    'قريب منك',
+  ),
+  _Slide(
+    Icons.event_available_outlined,
+    Strings.onboardingTitle2,
+    Strings.onboardingBody2,
+    'تأكيد فوري',
   ),
   _Slide(
     Icons.notifications_active_outlined,
-    Strings.onboardingTitle2,
-    Strings.onboardingBody2,
-  ),
-  _Slide(
-    Icons.verified_user_outlined,
     Strings.onboardingTitle3,
     Strings.onboardingBody3,
+    'إشعار عند الجاهزية',
   ),
 ];
 
@@ -97,70 +101,85 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isLast = _page == _slides.length - 1;
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                0,
-              ),
-              child: Row(
-                children: [
-                  // RTL puts the first child on the right, so the step counter
-                  // reads first and "تخطي" takes the trailing corner.
-                  Expanded(
-                    child: Text(
-                      Strings.onboardingPageOf(_page + 1, _slides.length),
-                      style: textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  child: Row(
+                    children: [
+                      // RTL puts the first child on the right, so the step counter
+                      // reads first and "تخطي" takes the trailing corner.
+                      Expanded(
+                        child: Text(
+                          Strings.onboardingPageOf(_page + 1, _slides.length),
+                          style: textTheme.labelMedium?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
-                    ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: AppColors.surface,
+                          minimumSize: const Size(64, 48),
+                          shape: const StadiumBorder(),
+                        ),
+                        onPressed: _goToLogin,
+                        child: const Text(Strings.onboardingSkip),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: _goToLogin,
-                    child: const Text(Strings.onboardingSkip),
+                ),
+                SizedBox(
+                  height: (constraints.maxHeight - (isLast ? 264 : 200)).clamp(
+                    360.0,
+                    680.0,
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _slides.length,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (context, i) => _SlideView(slide: _slides[i]),
-              ),
-            ),
-            _PageDots(page: _page, count: _slides.length, onTap: _goToPage),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.md,
-                AppSpacing.lg,
-                AppSpacing.lg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PrimaryButton(
-                    text: isLast
-                        ? Strings.onboardingGetStarted
-                        : Strings.onboardingNext,
-                    onPressed: isLast ? _goToRegistration : _next,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: _slides.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (context, i) => _SlideView(slide: _slides[i]),
                   ),
-                  if (isLast) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    SecondaryButton(
-                      text: Strings.onboardingHaveAccount,
-                      onPressed: _goToLogin,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                _PageDots(page: _page, count: _slides.length, onTap: _goToPage),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      PrimaryButton(
+                        text: isLast
+                            ? Strings.onboardingGetStarted
+                            : Strings.onboardingNext,
+                        onPressed: isLast ? _goToRegistration : _next,
+                      ),
+                      if (isLast) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        SecondaryButton(
+                          text: Strings.onboardingHaveAccount,
+                          onPressed: _goToLogin,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -183,7 +202,7 @@ class _SlideView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxHeight < 400;
-        final badge = compact ? 120.0 : 152.0;
+        final artwork = compact ? 220.0 : 280.0;
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: ConstrainedBox(
@@ -191,24 +210,84 @@ class _SlideView extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: badge,
-                  height: badge,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    slide.icon,
-                    size: compact ? 56 : 72,
-                    color: AppColors.accent,
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: artwork),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(44),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.13),
+                            blurRadius: 28,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(44),
+                            child: Image.asset(
+                              'assets/images/stitch_bread.png',
+                              fit: BoxFit.cover,
+                              excludeFromSemantics: true,
+                            ),
+                          ),
+                          PositionedDirectional(
+                            end: 14,
+                            bottom: 16,
+                            start: 14,
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      slide.icon,
+                                      color: AppColors.accent,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        slide.badge,
+                                        style: textTheme.labelLarge?.copyWith(
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                SizedBox(height: compact ? AppSpacing.md : AppSpacing.xl),
+                SizedBox(height: compact ? AppSpacing.lg : 36),
                 Text(
                   slide.title,
                   textAlign: TextAlign.center,
-                  style: textTheme.displayMedium,
+                  style: textTheme.displayMedium?.copyWith(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(

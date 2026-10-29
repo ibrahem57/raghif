@@ -4,6 +4,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:raghif/core/i18n/strings.dart';
 import 'package:raghif/features/auth/demo_accounts.dart';
 import 'package:raghif/features/queue/confirmation_screen.dart';
+import 'package:raghif/domain/models/purchase_model.dart';
+import 'package:raghif/features/queue/receipt_card.dart';
 
 import '../../support/queue_test_harness.dart';
 
@@ -24,6 +26,73 @@ void main() {
   );
 
   group('ConfirmationScreen QR Receipt', () {
+    testWidgets('receipt wraps real long metadata on a narrow screen', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.6)),
+            child: const Directionality(
+              textDirection: TextDirection.rtl,
+              child: Scaffold(
+                body: SingleChildScrollView(
+                  child: ReceiptCard(
+                    storeName: 'مخبز الحي ومركز توزيع الخبز في المنطقة',
+                    purchaseId: 'ad50b96f-6904-42d7-903f-a19eb8ff420b',
+                    purchaseDate: '2026-10-17',
+                    batchNumber: 12,
+                    userName: 'أحمد محمود عبد الرحمن',
+                    status: PurchaseStatus.collected,
+                    qrData: 'real-payload-preserved',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(find.text('#ad50b96f-6904-42d7-903f-a19eb8ff420b'), findsOneWidget);
+      expect(find.text(Strings.statusCollectedShort), findsOneWidget);
+      expect(find.text(Strings.paidBadge), findsNothing);
+    });
+
+    testWidgets('collected receipt does not announce ready for pickup', (
+      tester,
+    ) async {
+      final harness = buildQueueHarness();
+      final purchase = await harness.controller.buy(
+        storeId: seededStoreId,
+        date: '2026-09-03',
+      );
+      harness.repo.currentUserId = seededOwnerId;
+      await harness.controller.notifyNextBatch(seededStoreId, '2026-09-03');
+      await harness.controller.collectPurchase(purchase.id);
+      harness.repo.currentUserId = seededBuyerId;
+      await tester.pumpWidget(
+        wrapWithMaterial(
+          ConfirmationScreen(
+            controller: harness.controller,
+            purchaseId: purchase.id,
+            currentUser: testUser,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(Strings.statusCollectedShort), findsWidgets);
+      expect(find.text(Strings.statusNotified), findsNothing);
+      expect(find.text(Strings.waitingReassurance), findsNothing);
+      expect(find.byType(QrImageView), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('renders QR code and receipt info once purchase is present', (
       tester,
     ) async {
@@ -70,7 +139,10 @@ void main() {
 
       // Verify queue position and batch chips
       expect(find.textContaining(Strings.queuePosition), findsOneWidget);
-      expect(find.text(Strings.batchLabel(purchase.batchNumber)), findsOneWidget);
+      expect(
+        find.text(Strings.batchLabel(purchase.batchNumber)),
+        findsOneWidget,
+      );
 
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();

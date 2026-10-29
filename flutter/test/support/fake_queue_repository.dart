@@ -24,8 +24,8 @@ class FakeQueueRepository implements QueueRepository {
   FakeQueueRepository({
     List<StoreModel>? stores,
     Map<String, ({String name, String phone, String nationalId})>? users,
-  })  : _stores = [...?stores],
-        _users = {...?users};
+  }) : _stores = [...?stores],
+       _users = {...?users};
 
   /// A default pilot world: one owned store plus a buyer, mirroring what
   /// `seed_demo_*` puts in Postgres.
@@ -209,8 +209,9 @@ class FakeQueueRepository implements QueueRepository {
       throw StateError('already reserved a bag today');
     }
 
-    final sameDay =
-        _purchases.where((p) => p.storeId == storeId && p.purchaseDate == date);
+    final sameDay = _purchases.where(
+      (p) => p.storeId == storeId && p.purchaseDate == date,
+    );
     final batch = (sameDay.length ~/ store.batchSize) + 1;
 
     _replaceStore(store.copyWith(bagsRemaining: store.bagsRemaining - 1));
@@ -232,6 +233,82 @@ class FakeQueueRepository implements QueueRepository {
   }
 
   @override
+  Future<PurchaseModel> postponePurchase(String purchaseId) async {
+    _requireOnline();
+    final i = _purchases.indexWhere((p) => p.id == purchaseId);
+    if (i < 0 || _purchases[i].userId != currentUserId) {
+      throw const PostponeRejectedException('not your booking');
+    }
+    final p = _purchases[i];
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (p.postponementCount > 0) {
+      throw const PostponeRejectedException('already postponed');
+    }
+    if (p.purchaseDate != today || p.status == PurchaseStatus.collected) {
+      throw const PostponeRejectedException(
+        'only today uncollected booking may be postponed',
+      );
+    }
+    final tomorrow = DateTime.parse(
+      today,
+    ).add(const Duration(days: 1)).toIso8601String().substring(0, 10);
+    if (_purchases.any(
+      (p) => p.userId == currentUserId && p.purchaseDate == tomorrow,
+    )) {
+      throw const PostponeRejectedException('already reserved a bag tomorrow');
+    }
+    final store = _stores.firstWhere((s) => s.id == p.storeId);
+    final future = _purchases
+        .where((p) => p.storeId == store.id && p.purchaseDate == tomorrow)
+        .length;
+    if (future >= store.dailyBagLimit) {
+      throw const PostponeRejectedException('tomorrow capacity exhausted');
+    }
+    final moved = p.copyWith(
+      purchaseDate: tomorrow,
+      postponementCount: 1,
+      status: PurchaseStatus.waiting,
+      batchNumber: future ~/ store.batchSize + 1,
+    );
+    _purchases[i] = moved;
+    final sold = _purchases
+        .where((p) => p.storeId == store.id && p.purchaseDate == today)
+        .length;
+    _replaceStore(
+      store.copyWith(
+        bagsRemaining: (store.bagsRemaining + 1).clamp(
+          0,
+          (store.dailyBagLimit - sold).clamp(0, store.dailyBagLimit),
+        ),
+      ),
+    );
+    _emit();
+    return moved;
+  }
+
+  @override
+  Future<PurchaseModel?> currentOrUpcomingPurchase(
+    String userId,
+    String today,
+  ) async {
+    final rows =
+        _purchases
+            .where(
+              (p) =>
+                  p.userId == userId &&
+                  p.purchaseDate.compareTo(today) >= 0 &&
+                  (p.purchaseDate == today ||
+                      p.status != PurchaseStatus.collected),
+            )
+            .toList()
+          ..sort((a, b) => a.purchaseDate.compareTo(b.purchaseDate));
+    final purchase =
+        rows.where((p) => p.status != PurchaseStatus.collected).firstOrNull ??
+        rows.where((p) => p.purchaseDate == today).firstOrNull;
+    return purchase == null ? null : _decorate(purchase);
+  }
+
+  @override
   Future<bool> notifyNextBatch(String storeId, String date) async {
     _requireOnline();
     _requireOwner(storeId);
@@ -243,8 +320,9 @@ class FakeQueueRepository implements QueueRepository {
     );
     if (waiting.isEmpty) return false;
 
-    final next =
-        waiting.map((p) => p.batchNumber).reduce((a, b) => a < b ? a : b);
+    final next = waiting
+        .map((p) => p.batchNumber)
+        .reduce((a, b) => a < b ? a : b);
     for (var i = 0; i < _purchases.length; i++) {
       final p = _purchases[i];
       if (p.storeId == storeId &&
@@ -293,7 +371,9 @@ class FakeQueueRepository implements QueueRepository {
         .where((p) => p.storeId == storeId && p.purchaseDate == date)
         .length;
     _replaceStore(
-      _stores.firstWhere((s) => s.id == storeId).copyWith(
+      _stores
+          .firstWhere((s) => s.id == storeId)
+          .copyWith(
             dailyBagLimit: dailyLimit,
             batchSize: batchSize < 1 ? 1 : batchSize,
             bagsRemaining: (dailyLimit - sold) < 0 ? 0 : dailyLimit - sold,
@@ -377,10 +457,11 @@ class FakeQueueRepository implements QueueRepository {
   }) {
     return _watch(() {
       return _stores.map((store) {
-        final mine = _purchases
-            .where((p) => p.userId == userId && p.storeId == store.id)
-            .toList()
-          ..sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
+        final mine =
+            _purchases
+                .where((p) => p.userId == userId && p.storeId == store.id)
+                .toList()
+              ..sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
         final todays = mine.where((p) => p.purchaseDate == today).firstOrNull;
         return StoreListEntry(
           store: store,
@@ -394,11 +475,12 @@ class FakeQueueRepository implements QueueRepository {
   }
 
   List<PurchaseModel> _queue(String storeId, String date) {
-    final rows = _purchases
-        .where((p) => p.storeId == storeId && p.purchaseDate == date)
-        .map(_decorate)
-        .toList()
-      ..sort((a, b) => a.createdAtMillis.compareTo(b.createdAtMillis));
+    final rows =
+        _purchases
+            .where((p) => p.storeId == storeId && p.purchaseDate == date)
+            .map(_decorate)
+            .toList()
+          ..sort((a, b) => a.createdAtMillis.compareTo(b.createdAtMillis));
     return rows;
   }
 
@@ -407,8 +489,10 @@ class FakeQueueRepository implements QueueRepository {
       _watch(() => _queue(storeId, date));
 
   @override
-  Future<List<PurchaseModel>> getQueueForStore(String storeId, String date) async =>
-      _queue(storeId, date);
+  Future<List<PurchaseModel>> getQueueForStore(
+    String storeId,
+    String date,
+  ) async => _queue(storeId, date);
 
   @override
   Future<PurchaseModel?> getBlockingPurchase(String userId, String date) async {
@@ -426,34 +510,34 @@ class FakeQueueRepository implements QueueRepository {
 
   @override
   Stream<PurchaseModel?> watchPurchaseById(String purchaseId) => _watch(() {
-        final match = _purchases.where((p) => p.id == purchaseId).firstOrNull;
-        return match == null ? null : _decorate(match);
-      });
+    final match = _purchases.where((p) => p.id == purchaseId).firstOrNull;
+    return match == null ? null : _decorate(match);
+  });
 
   @override
   Future<List<ScanEventModel>> getScansForStore(
     String storeId, {
     int limit = 100,
-  }) async =>
-      _scans.where((s) => s.storeId == storeId).take(limit).toList();
+  }) async => _scans.where((s) => s.storeId == storeId).take(limit).toList();
 
   List<CustomerSummaryModel> _customers(String storeId) {
     final byUser = <String, List<PurchaseModel>>{};
     for (final p in _purchases.where((p) => p.storeId == storeId)) {
       byUser.putIfAbsent(p.userId, () => []).add(p);
     }
-    final out = byUser.entries.map((e) {
-      final user = _users[e.key];
-      final dates = e.value.map((p) => p.purchaseDate).toList()..sort();
-      return CustomerSummaryModel(
-        userId: e.key,
-        name: user?.name ?? '',
-        phone: user?.phone ?? '',
-        totalPurchases: e.value.length,
-        lastPurchaseDate: dates.last,
-      );
-    }).toList()
-      ..sort((a, b) => b.lastPurchaseDate.compareTo(a.lastPurchaseDate));
+    final out =
+        byUser.entries.map((e) {
+            final user = _users[e.key];
+            final dates = e.value.map((p) => p.purchaseDate).toList()..sort();
+            return CustomerSummaryModel(
+              userId: e.key,
+              name: user?.name ?? '',
+              phone: user?.phone ?? '',
+              totalPurchases: e.value.length,
+              lastPurchaseDate: dates.last,
+            );
+          }).toList()
+          ..sort((a, b) => b.lastPurchaseDate.compareTo(a.lastPurchaseDate));
     return out;
   }
 
@@ -464,8 +548,7 @@ class FakeQueueRepository implements QueueRepository {
   @override
   Future<List<CustomerSummaryModel>> getCustomersForStore(
     String storeId,
-  ) async =>
-      _customers(storeId);
+  ) async => _customers(storeId);
 
   @override
   Future<List<StoreDaySummary>> getDailySummaries(
@@ -479,8 +562,9 @@ class FakeQueueRepository implements QueueRepository {
     final dates = byDate.keys.toList()..sort((a, b) => b.compareTo(a));
     return dates.take(limit).map((date) {
       final rows = byDate[date]!;
-      final collected =
-          rows.where((p) => p.status == PurchaseStatus.collected).length;
+      final collected = rows
+          .where((p) => p.status == PurchaseStatus.collected)
+          .length;
       return StoreDaySummary(
         date: date,
         sold: rows.length,

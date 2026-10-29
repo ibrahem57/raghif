@@ -12,14 +12,12 @@ import 'support/fake_auth_repository.dart';
 import 'support/queue_test_harness.dart';
 
 void main() {
-  testWidgets('RaghifApp shows onboarding on a fresh install', (
+  testWidgets('RaghifApp opens the Stitch identity before fresh onboarding', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
 
-    final authBloc = AuthBloc(
-      authRepository: FakeAuthRepository(),
-    );
+    final authBloc = AuthBloc(authRepository: FakeAuthRepository());
     await tester.pumpWidget(
       RaghifApp(
         authBloc: authBloc,
@@ -28,6 +26,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('رغيف'), findsOneWidget);
+    expect(find.text('ابدأ التجربة'), findsOneWidget);
+    expect(find.text(Strings.onboardingTitle1), findsNothing);
+    await tester.tap(find.text('ابدأ التجربة'));
+    await tester.pumpAndSettle();
     expect(find.text(Strings.onboardingTitle1), findsOneWidget);
     expect(
       find.text(Strings.onboardingGetStarted),
@@ -57,9 +60,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({'onboarding.seen': true});
 
-    final authBloc = AuthBloc(
-      authRepository: FakeAuthRepository(),
-    );
+    final authBloc = AuthBloc(authRepository: FakeAuthRepository());
     await tester.pumpWidget(
       RaghifApp(
         authBloc: authBloc,
@@ -68,6 +69,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('ابدأ التجربة'), findsOneWidget);
+    await tester.tap(find.text('ابدأ التجربة'));
+    await tester.pumpAndSettle();
     expect(find.text(Strings.loginIdTitle), findsOneWidget);
     expect(find.text(Strings.personalIdLabel), findsOneWidget);
     expect(find.text(Strings.continueButton), findsOneWidget);
@@ -80,9 +84,7 @@ void main() {
   testWidgets('signing out from the running app asks, then returns to login', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'onboarding.seen': true,
-    });
+    SharedPreferences.setMockInitialValues({'onboarding.seen': true});
     const buyer = UserModel(
       id: 'user-buyer',
       phone: '0599111111',
@@ -91,7 +93,10 @@ void main() {
       verificationStatus: VerificationStatus.verified,
     );
     final authBloc = AuthBloc(
-      authRepository: FakeAuthRepository(users: const [buyer], sessionUserId: 'user-buyer'),
+      authRepository: FakeAuthRepository(
+        users: const [buyer],
+        sessionUserId: 'user-buyer',
+      ),
     );
     await tester.pumpWidget(
       RaghifApp(
@@ -100,9 +105,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byTooltip(Strings.logout), findsOneWidget);
-
-    await tester.tap(find.byTooltip(Strings.logout));
+    await tester.tap(find.text('ابدأ التجربة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حسابي'));
+    await tester.pumpAndSettle();
+    final logout = find.widgetWithText(OutlinedButton, 'تسجيل الخروج');
+    await tester.ensureVisible(logout);
+    await tester.pumpAndSettle();
+    expect(logout.hitTestable(), findsOneWidget);
+    await tester.tap(logout);
     await tester.pumpAndSettle();
     expect(find.text(Strings.logoutConfirmTitle), findsOneWidget);
 
@@ -123,51 +134,70 @@ void main() {
   });
 
   testWidgets(
-      'signing out from a pushed screen clears the stack: login, no way back',
-      (WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues({
-      'onboarding.seen': true,
-    });
-    const buyer = UserModel(
-      id: 'user-buyer',
-      phone: '0599111111',
-      nationalId: '900111222',
-      name: 'أحمد ناصر',
-      verificationStatus: VerificationStatus.verified,
-    );
-    final authBloc = AuthBloc(
-      authRepository: FakeAuthRepository(users: const [buyer], sessionUserId: 'user-buyer'),
-    );
-    await tester.pumpWidget(
-      RaghifApp(
-        authBloc: authBloc,
-        queueController: buildQueueHarness().controller,
-      ),
-    );
-    await tester.pumpAndSettle();
+    'signing out from a pushed screen clears the stack: login, no way back',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({'onboarding.seen': true});
+      const buyer = UserModel(
+        id: 'user-buyer',
+        phone: '0599111111',
+        nationalId: '900111222',
+        name: 'أحمد ناصر',
+        verificationStatus: VerificationStatus.verified,
+      );
+      final authBloc = AuthBloc(
+        authRepository: FakeAuthRepository(
+          users: const [buyer],
+          sessionUserId: 'user-buyer',
+        ),
+      );
+      await tester.pumpWidget(
+        RaghifApp(
+          authBloc: authBloc,
+          queueController: buildQueueHarness().controller,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    // The store list is a pushed route with its own sign-out button.
-    await tester.tap(find.text(Strings.browseStoresButton).first);
-    await tester.pumpAndSettle();
-    expect(find.text(Strings.storeListTitle), findsOneWidget);
+      await tester.tap(find.text('ابدأ التجربة'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip(Strings.logout));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text(Strings.logout),
-      ),
-    );
-    await tester.pumpAndSettle();
+      // The store list is a pushed route with its own sign-out button.
+      await tester.scrollUntilVisible(
+        find.text('عرض جميع المخابز'),
+        200,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) =>
+                  w is Scrollable &&
+                  axisDirectionToAxis(w.axisDirection) == Axis.vertical,
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('عرض جميع المخابز'));
+      await tester.pumpAndSettle();
+      expect(find.text(Strings.storeListTitle), findsOneWidget);
 
-    expect(find.text(Strings.storeListTitle), findsNothing);
-    expect(find.text(Strings.loginIdTitle), findsOneWidget);
-    // Back from login must leave the app, not reopen the signed-out screen.
-    final navigator = tester.state<NavigatorState>(find.byType(Navigator).first);
-    expect(navigator.canPop(), isFalse);
+      await tester.tap(find.byTooltip(Strings.logout));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(Strings.logout),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(const SizedBox());
-    await tester.pumpAndSettle();
-  });
+      expect(find.text(Strings.storeListTitle), findsNothing);
+      expect(find.text(Strings.loginIdTitle), findsOneWidget);
+      // Back from login must leave the app, not reopen the signed-out screen.
+      final navigator = tester.state<NavigatorState>(
+        find.byType(Navigator).first,
+      );
+      expect(navigator.canPop(), isFalse);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 }
