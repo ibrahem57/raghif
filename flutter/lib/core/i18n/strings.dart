@@ -5,6 +5,8 @@ class Strings {
   Strings._();
 
   static const appTitle = 'توزيع الخبز';
+  static const contactUs = 'تواصل معنا';
+  static const contactUsUnavailable = 'تعذر فتح واتساب. حاول مرة أخرى.';
   static const phoneLabel = 'رقم الهاتف';
   static const pinLabel = 'الرمز السري المكون من 4 أرقام';
   static const loginButton = 'تسجيل الدخول';
@@ -44,14 +46,11 @@ class Strings {
   static const onboardingGetStarted = 'إنشاء حساب';
   static const onboardingHaveAccount = 'لدي حساب بالفعل';
   static const onboardingTitle1 = 'خبزك أقرب إلك';
-  static const onboardingBody1 =
-      'اعرف نقاط توزيع الخبز القريبة منك.';
+  static const onboardingBody1 = 'اعرف نقاط توزيع الخبز القريبة منك.';
   static const onboardingTitle2 = 'احجز ربطتك';
-  static const onboardingBody2 =
-      'اختار نقطة التوزيع واحجز بسهولة.';
+  static const onboardingBody2 = 'اختار نقطة التوزيع واحجز بسهولة.';
   static const onboardingTitle3 = 'استلم بوقتك';
-  static const onboardingBody3 =
-      'بنبلغك أول ما ييجي دورك.';
+  static const onboardingBody3 = 'بنبلغك أول ما ييجي دورك.';
 
   /// "الصفحة 2 من 3" — the counter above the intro, so how many steps are left
   /// is readable without counting dots. Western digits, like the rest of the

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/i18n/strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/secondary_button.dart';
 import '../../domain/models/user_model.dart';
 import '../auth/bloc/auth_bloc.dart';
 import '../queue/confirm_action.dart';
@@ -13,6 +16,23 @@ import '../queue/confirm_action.dart';
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key, this.embedded = false});
   final bool embedded;
+
+  Future<void> _contactUs(BuildContext context) async {
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.https('wa.me', '/972567561147'),
+        mode: LaunchMode.externalApplication,
+      );
+    } on Exception {
+      opened = false;
+    }
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(Strings.contactUsUnavailable)),
+      );
+    }
+  }
 
   Future<void> _edit(BuildContext context, UserModel user) async {
     final bloc = context.read<AuthBloc>();
@@ -119,6 +139,11 @@ class AccountScreen extends StatelessWidget {
                         onPressed: state.profileSaving
                             ? null
                             : () => _edit(context, user),
+                      ),
+                      const SizedBox(height: 12),
+                      SecondaryButton(
+                        text: Strings.contactUs,
+                        onPressed: () => _contactUs(context),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(

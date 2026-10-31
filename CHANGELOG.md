@@ -18,6 +18,10 @@ Workflow rules this changelog lives by:
   `TASKS.md` — this log starts at the current collaboration.
 
 ## [Unreleased]
+### Added — 2026-10-31 — WhatsApp contact
+
+- Added the Arabic "Contact us" action to the existing Account screen for buyers and bakery owners. It opens `https://wa.me/972567561147` externally and shows retry feedback if launching fails.
+
 ### Fixed — 2026-10-29 — migration audit and team APK builds
 
 - Classified the two live Gaza City areas the governorate backfill missed (Sheikh Radwan, Tal al-Hawa), so every current store is reachable from the governorate screen instead of only browse-all.
