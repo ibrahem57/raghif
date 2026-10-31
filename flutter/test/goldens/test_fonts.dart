@@ -16,6 +16,13 @@ import 'package:flutter_test/flutter_test.dart';
 ///   `testWidgets` otherwise runs in a fake-async zone that never pumps a
 ///   genuine OS read, so this hangs forever without it.
 Future<void> loadAppFonts(WidgetTester tester) async {
+  final ibmLoader = FontLoader('IBMPlexSansArabic');
+  for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    ibmLoader.addFont(
+      rootBundle.load('assets/fonts/IBMPlexSansArabic-$weight.ttf'),
+    );
+  }
+  await ibmLoader.load();
   final notoLoader = FontLoader('NotoSansArabic');
   notoLoader.addFont(
     rootBundle.load('assets/fonts/NotoSansArabic-VariableFont.ttf'),

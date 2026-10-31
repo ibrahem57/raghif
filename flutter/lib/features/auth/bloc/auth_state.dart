@@ -17,12 +17,18 @@ class AuthLoading extends AuthState {
 }
 
 class Authenticated extends AuthState {
-  const Authenticated(this.user);
+  const Authenticated(
+    this.user, {
+    this.profileSaving = false,
+    this.profileError,
+  });
 
   final UserModel user;
+  final bool profileSaving;
+  final String? profileError;
 
   @override
-  List<Object?> get props => [user];
+  List<Object?> get props => [user, profileSaving, profileError];
 }
 
 class Unauthenticated extends AuthState {

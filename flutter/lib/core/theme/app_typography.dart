@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-const _fontFamily = 'NotoSansArabic';
+const _fontFamily = 'IBMPlexSansArabic';
 
 /// Sizes per UI_SPEC.md token table — legible in sunlight, for a queue app
 /// used standing up. Body text is 16sp or more (constitution V); nothing in

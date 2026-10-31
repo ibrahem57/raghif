@@ -9,7 +9,6 @@ import 'package:raghif/domain/repositories/queue_repository.dart';
 import 'package:raghif/features/queue/owner_history_screen.dart';
 import 'package:raghif/features/queue/queue_controller.dart';
 
-
 class MockQueueRepository extends Mock implements QueueRepository {}
 
 void main() {
@@ -56,10 +55,75 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('lists each day with sold / collected / outstanding counts',
-      (tester) async {
-    when(() => repo.getDailySummaries('store-1', limit: any(named: 'limit')))
-        .thenAnswer(
+  for (final size in [const Size(320, 640), const Size(640, 320)]) {
+    testWidgets('history and day detail scroll at $size with large text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      when(
+        () => repo.getDailySummaries('store-1', limit: any(named: 'limit')),
+      ).thenAnswer(
+        (_) async => const [
+          StoreDaySummary(
+            date: '2026-08-02',
+            sold: 2,
+            collected: 1,
+            notCollected: 1,
+          ),
+        ],
+      );
+      when(() => repo.getQueueForStore('store-1', '2026-08-02')).thenAnswer(
+        (_) async => [
+          purchase(
+            'one',
+            PurchaseStatus.collected,
+            name: 'أحمد محمد محمود عبد الرحمن النجار',
+          ),
+          purchase('two', PurchaseStatus.waiting, name: 'محمود سعيد'),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(1.5)),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
+          ),
+          home: OwnerHistoryScreen(controller: controller, storeId: 'store-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('2026-08-02'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('2026-08-02'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('محمود سعيد'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text(Strings.statusWaitingShort), findsWidgets);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('lists each day with sold / collected / outstanding counts', (
+    tester,
+  ) async {
+    when(
+      () => repo.getDailySummaries('store-1', limit: any(named: 'limit')),
+    ).thenAnswer(
       (_) async => const [
         StoreDaySummary(
           date: '2026-08-02',
@@ -87,8 +151,9 @@ void main() {
   });
 
   testWidgets('empty history shows the placeholder', (tester) async {
-    when(() => repo.getDailySummaries('store-1', limit: any(named: 'limit')))
-        .thenAnswer((_) async => const []);
+    when(
+      () => repo.getDailySummaries('store-1', limit: any(named: 'limit')),
+    ).thenAnswer((_) async => const []);
 
     await pumpHistory(tester);
 
@@ -96,8 +161,9 @@ void main() {
   });
 
   testWidgets('tapping a day opens that day with its buyers', (tester) async {
-    when(() => repo.getDailySummaries('store-1', limit: any(named: 'limit')))
-        .thenAnswer(
+    when(
+      () => repo.getDailySummaries('store-1', limit: any(named: 'limit')),
+    ).thenAnswer(
       (_) async => const [
         StoreDaySummary(
           date: '2026-08-02',

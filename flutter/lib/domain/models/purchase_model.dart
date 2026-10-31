@@ -16,6 +16,7 @@ class PurchaseModel extends Equatable {
     this.userPhone,
     this.userNationalId,
     this.storeName,
+    this.postponementCount = 0,
   });
 
   final String id;
@@ -29,6 +30,7 @@ class PurchaseModel extends Equatable {
   final String? userPhone;
   final String? userNationalId;
   final String? storeName;
+  final int postponementCount;
 
   PurchaseModel copyWith({
     String? id,
@@ -42,6 +44,7 @@ class PurchaseModel extends Equatable {
     String? userPhone,
     String? userNationalId,
     String? storeName,
+    int? postponementCount,
   }) {
     return PurchaseModel(
       id: id ?? this.id,
@@ -55,21 +58,23 @@ class PurchaseModel extends Equatable {
       userPhone: userPhone ?? this.userPhone,
       userNationalId: userNationalId ?? this.userNationalId,
       storeName: storeName ?? this.storeName,
+      postponementCount: postponementCount ?? this.postponementCount,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        storeId,
-        userId,
-        purchaseDate,
-        batchNumber,
-        status,
-        createdAtMillis,
-        userName,
-        userPhone,
-        userNationalId,
-        storeName,
-      ];
+    id,
+    storeId,
+    userId,
+    purchaseDate,
+    batchNumber,
+    status,
+    createdAtMillis,
+    userName,
+    userPhone,
+    userNationalId,
+    storeName,
+    postponementCount,
+  ];
 }

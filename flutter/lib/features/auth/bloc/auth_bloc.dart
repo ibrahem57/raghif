@@ -9,10 +9,9 @@ export 'auth_event.dart';
 export 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({
-    required AuthRepository authRepository,
-  })  : _authRepository = authRepository,
-        super(const AuthInitial()) {
+  AuthBloc({required AuthRepository authRepository})
+    : _authRepository = authRepository,
+      super(const AuthInitial()) {
     on<CheckAuthSessionEvent>(_onCheckAuthSession);
     on<RequestOtpEvent>(_onRequestOtp);
     on<VerifyOtpEvent>(_onVerifyOtp);
@@ -21,12 +20,49 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<RegisterRequestedEvent>(_onRegisterRequested);
     on<LogoutRequestedEvent>(_onLogoutRequested);
     on<VerificationApprovedEvent>(_onVerificationApproved);
+    on<UpdateProfileRequestedEvent>(_onUpdateProfile);
   }
 
   final AuthRepository _authRepository;
 
   String? _pendingOtp;
   String? _pendingNationalId;
+  int _sessionEpoch = 0;
+
+  Future<void> _onUpdateProfile(
+    UpdateProfileRequestedEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (current is! Authenticated || current.profileSaving) return;
+    final epoch = _sessionEpoch;
+    emit(Authenticated(current.user, profileSaving: true));
+    try {
+      final updated = await _authRepository.updateProfile(
+        name: event.name.trim(),
+        phone: event.phone.trim(),
+        jawwalPayNumber: event.jawwalPayNumber.trim(),
+      );
+      if (epoch != _sessionEpoch ||
+          state is! Authenticated ||
+          (state as Authenticated).user.id != current.user.id) {
+        return;
+      }
+      emit(Authenticated(updated));
+    } catch (_) {
+      if (epoch != _sessionEpoch ||
+          state is! Authenticated ||
+          (state as Authenticated).user.id != current.user.id) {
+        return;
+      }
+      emit(
+        Authenticated(
+          current.user,
+          profileError: 'تعذر حفظ البيانات. تحقق من الاتصال وحاول مجدداً.',
+        ),
+      );
+    }
+  }
 
   Future<void> _onCheckAuthSession(
     CheckAuthSessionEvent event,
@@ -62,11 +98,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _pendingOtp = otp.code;
       _pendingNationalId = nationalId;
       // No SMS gateway yet: the login screen shows the mock code itself.
-      emit(AuthOtpSent(
-        nationalId: nationalId,
-        phone: otp.phone,
-        otpCode: otp.code,
-      ));
+      emit(
+        AuthOtpSent(
+          nationalId: nationalId,
+          phone: otp.phone,
+          otpCode: otp.code,
+        ),
+      );
     } catch (e) {
       // The gateway answering "no" is handled in the repository; anything
       // that gets here is a call that never got an answer.
@@ -88,7 +126,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      final expectedOtp = _pendingOtp ??
+      final expectedOtp =
+          _pendingOtp ??
           (state is AuthOtpSent ? (state as AuthOtpSent).otpCode : '4821');
 
       if (otp != expectedOtp) {
@@ -96,7 +135,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      final user = await _authRepository.loginWithOtp(nationalId: nationalId, code: otp);
+      final user = await _authRepository.loginWithOtp(
+        nationalId: nationalId,
+        code: otp,
+      );
       if (user != null) {
         _pendingOtp = null;
         _pendingNationalId = null;
@@ -214,6 +256,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     LogoutRequestedEvent event,
     Emitter<AuthState> emit,
   ) async {
+    _sessionEpoch++;
     await _authRepository.logout();
     emit(const Unauthenticated());
   }

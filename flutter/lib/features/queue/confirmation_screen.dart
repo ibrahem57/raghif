@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/i18n/strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/widgets/app_card.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/secondary_button.dart';
 import '../../core/widgets/status_chip.dart';
@@ -41,8 +40,8 @@ class ConfirmationScreen extends StatefulWidget {
 class _ConfirmationScreenState extends State<ConfirmationScreen> {
   final GlobalKey _receiptKey = GlobalKey();
 
-  late final Stream<PurchaseModel?> _purchaseStream =
-      widget.controller.watchPurchase(widget.purchaseId);
+  late final Stream<PurchaseModel?> _purchaseStream = widget.controller
+      .watchPurchase(widget.purchaseId);
 
   String? _queueStreamStoreId;
   String? _queueStreamDate;
@@ -95,108 +94,145 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                 storeId: purchase.storeId,
               );
 
-          return SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (position > 0)
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: [
-                            StatusChip(
-                              text: '${Strings.queuePosition} $position',
-                              tone: StatusTone.neutral,
+              final (statusLabel, tone) = switch (purchase.status) {
+                PurchaseStatus.waiting => (
+                  Strings.statusWaiting,
+                  StatusTone.warning,
+                ),
+                PurchaseStatus.notified => (
+                  Strings.statusNotified,
+                  StatusTone.success,
+                ),
+                PurchaseStatus.collected => (
+                  Strings.statusCollectedShort,
+                  StatusTone.neutral,
+                ),
+              };
+              final headline = switch (purchase.status) {
+                PurchaseStatus.waiting => 'تم حجز ربطتك',
+                PurchaseStatus.notified => Strings.statusNotified,
+                PurchaseStatus.collected => Strings.statusCollectedShort,
+              };
+              return SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.successContainer,
+                              ),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.success,
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  size: 36,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                            StatusChip(
-                              text: Strings.batchLabel(purchase.batchNumber),
-                              tone: StatusTone.neutral,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            headline,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          if (purchase.status != PurchaseStatus.collected) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              purchase.status == PurchaseStatus.waiting
+                                  ? Strings.waitingReassurance
+                                  : Strings.batchReadyNotificationBody,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppColors.textSecondary),
                             ),
                           ],
-                        ),
-                      const SizedBox(height: AppSpacing.lg),
-                      if (purchase.status == PurchaseStatus.waiting) ...[
-                        Text(
-                          Strings.statusWaiting,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        AppCard(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppSpacing.sm,
-                              ),
-                              child: Text(
-                                Strings.waitingReassurance,
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
+                          const SizedBox(height: 14),
+                          Center(
+                            child: StatusChip(
+                              text: purchase.status == PurchaseStatus.waiting
+                                  ? statusLabel
+                                  : purchase.status == PurchaseStatus.notified
+                                  ? Strings.statusNotifiedShort
+                                  : 'اكتمل طلبك',
+                              tone: tone,
                             ),
                           ),
-                        ),
-                      ] else
-                        AppCard(
-                          child: Center(
-                            child: Text(
-                              Strings.statusNotified,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.displayLarge
-                                  ?.copyWith(color: AppColors.accent),
+                          const SizedBox(height: 24),
+                          RepaintBoundary(
+                            key: _receiptKey,
+                            child: ReceiptCard(
+                              storeName: qrPayload.storeName,
+                              purchaseId: qrPayload.purchaseId,
+                              purchaseDate: qrPayload.purchaseDate,
+                              batchNumber: purchase.batchNumber,
+                              userName: qrPayload.userName,
+                              status: purchase.status,
+                              qrData: qrPayload.encode(),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        Strings.receiptQrTitle,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium,
+                          const SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            children: [
+                              if (position > 0)
+                                StatusChip(
+                                  text: '${Strings.queuePosition} $position',
+                                  tone: StatusTone.neutral,
+                                ),
+                              StatusChip(
+                                text: Strings.batchLabel(purchase.batchNumber),
+                                tone: StatusTone.neutral,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          SecondaryButton(
+                            text: Strings.saveQrButton,
+                            onPressed: () =>
+                                _saveQrToGallery(context, qrPayload),
+                          ),
+                          const SizedBox(height: 12),
+                          SecondaryButton(
+                            text: Strings.shareQrButton,
+                            onPressed: () => _shareQr(context, qrPayload),
+                          ),
+                          const SizedBox(height: 16),
+                          PrimaryButton(
+                            text: Strings.returnToStores,
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).popUntil((route) => route.isFirst),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      RepaintBoundary(
-                        key: _receiptKey,
-                        child: ReceiptCard(
-                          storeName: qrPayload.storeName,
-                          purchaseId: qrPayload.purchaseId,
-                          purchaseDate: qrPayload.purchaseDate,
-                          batchNumber: purchase.batchNumber,
-                          userName: qrPayload.userName,
-                          status: purchase.status,
-                          qrData: qrPayload.encode(),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      SecondaryButton(
-                        text: Strings.shareQrButton,
-                        onPressed: () => _shareQr(context, qrPayload),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      SecondaryButton(
-                        text: Strings.saveQrButton,
-                        onPressed: () => _saveQrToGallery(context, qrPayload),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      PrimaryButton(
-                        text: Strings.returnToStores,
-                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            );
-          },
-        );
-      },
-    ),
-  );
-}
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 
   Future<Uint8List?> _captureReceiptBytes() async {
     try {
@@ -204,9 +240,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
           _receiptKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
       final image = await boundary?.toImage(pixelRatio: 3.0);
-      final byteData = await image?.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
+      final byteData = await image?.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (_) {
       return null;
@@ -237,9 +271,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
       if (bytes != null) {
         await Gal.putImageBytes(bytes, name: 'receipt_${payload.purchaseId}');
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(Strings.qrSavedSuccess)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text(Strings.qrSavedSuccess)));
         }
         return;
       }
@@ -247,9 +281,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
       // Fallback
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(Strings.qrSaveFailed)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(Strings.qrSaveFailed)));
     }
   }
 }

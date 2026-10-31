@@ -26,8 +26,34 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'IBMPlexSansArabic',
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 64,
+        titleTextStyle: AppTypography.titleMedium.copyWith(fontSize: 20),
+      ),
+      dividerTheme: const DividerThemeData(color: AppColors.border, space: 24),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.accent,
+          minimumSize: const Size(48, 48),
+          textStyle: AppTypography.labelMedium,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.accentContainer,
+        labelStyle: AppTypography.bodySmall,
+        side: const BorderSide(color: AppColors.border),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      ),
       textTheme: const TextTheme(
         displayLarge: AppTypography.displayLarge,
         displayMedium: AppTypography.displayMedium,
@@ -41,13 +67,19 @@ class AppTheme {
         labelSmall: AppTypography.labelSmall,
       ),
       inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
         border: OutlineInputBorder(
           borderRadius: AppShapes.medium,
-          borderSide: const BorderSide(color: AppColors.inputBorder, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.inputBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppShapes.medium,
-          borderSide: const BorderSide(color: AppColors.inputBorder, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.inputBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppShapes.medium,
@@ -72,13 +104,18 @@ class AppTheme {
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.onAccent,
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(borderRadius: AppShapes.medium),
+          shape: const StadiumBorder(),
+          elevation: 2,
+          shadowColor: const Color(0x33884E00),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           textStyle: AppTypography.labelLarge,
         ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 1,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: const Color(0x142E3B2E),
         shape: RoundedRectangleBorder(
           borderRadius: AppShapes.large,
           side: const BorderSide(color: AppColors.border),

@@ -1,4 +1,5 @@
 import '../../domain/models/store_list_entry.dart';
+import '../locations/location_logic.dart';
 
 /// Pure store-list logic, kept out of the widget so it's unit-testable
 /// (mirrors the `queue_logic.dart` pattern).
@@ -35,10 +36,16 @@ List<StoreListEntry> filterStoreEntries(
   List<StoreListEntry> entries, {
   String query = '',
   String? area,
+  String? governorate,
 }) {
   final q = query.trim();
   return entries.where((entry) {
-    if (area != null && area.isNotEmpty && entry.store.area != area) {
+    if (governorate != null && governorateOf(entry.store) != governorate) {
+      return false;
+    }
+    if (area != null &&
+        area.isNotEmpty &&
+        entry.store.area.trim() != area.trim()) {
       return false;
     }
     if (q.isEmpty) return true;
@@ -51,7 +58,7 @@ List<StoreListEntry> filterStoreEntries(
 List<String> areasOf(List<StoreListEntry> entries) {
   final seen = <String>[];
   for (final entry in entries) {
-    final area = entry.store.area;
+    final area = entry.store.area.trim();
     if (area.isEmpty || seen.contains(area)) continue;
     seen.add(area);
   }

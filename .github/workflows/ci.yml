@@ -1,9 +1,14 @@
 name: CI
 
-# Pull requests only: does it analyze cleanly and do the tests pass. Nothing
-# here builds the Android app; that happens once per merge (release.yml).
-# No branch filter, so stacked PRs that target a parent branch are covered.
-on: pull_request
+# Pull requests and pushes to master: does it analyze cleanly and do the tests
+# pass. No branch filter on pull_request, so stacked PRs that target a parent
+# branch are covered. Nothing here builds the Android app; that happens once per
+# merge (release.yml).
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read

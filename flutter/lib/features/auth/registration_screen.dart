@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/i18n/strings.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/status_chip.dart';
@@ -159,7 +161,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         builder: (context, state) {
           final isLoading = state is AuthLoading;
           return Scaffold(
-            appBar: AppBar(title: const Text(Strings.registrationTitle)),
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+              title: const Text(Strings.registrationTitle),
+            ),
             body: SafeArea(
               child: AutofillGroup(
                 child: Form(
@@ -179,8 +185,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            Center(
+                              child: Container(
+                                width: 76,
+                                height: 76,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentContainer,
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: SvgPicture.asset(
+                                  'assets/images/stitch_loaf.svg',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              'رغيف',
+                              textAlign: TextAlign.center,
+                              style: textTheme.displayMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
                             Text(
                               Strings.registrationSubtitle,
+                              textAlign: TextAlign.center,
                               style: textTheme.bodyLarge?.copyWith(
                                 color: muted,
                               ),
@@ -192,7 +222,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               muted,
                             ),
                             const SizedBox(height: AppSpacing.sm),
-                            Column(
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   LabeledField(
@@ -205,7 +241,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       textInputAction: TextInputAction.next,
                                       autofillHints: const [AutofillHints.name],
                                       validator: _validateName,
-                                      decoration: const InputDecoration(),
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.person_outline_rounded,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: AppSpacing.md),
@@ -224,7 +264,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                         LengthLimitingTextInputFormatter(10),
                                       ],
                                       validator: _validatePhone,
-                                      decoration: const InputDecoration(),
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.phone_android_rounded,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: AppSpacing.md),
@@ -241,12 +285,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       ],
                                       validator: _validateNationalId,
                                       decoration: const InputDecoration(
+                                        prefixIcon: Icon(Icons.badge_outlined),
                                         helperText: Strings.nationalIdHelper,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
                             const SizedBox(height: AppSpacing.lg),
                             _sectionLabel(
                               Strings.registrationPaymentSection,
@@ -254,7 +300,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               muted,
                             ),
                             const SizedBox(height: AppSpacing.sm),
-                            Column(
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   LabeledField(
@@ -271,6 +323,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       ],
                                       validator: _validatePin,
                                       decoration: InputDecoration(
+                                        prefixIcon: const Icon(
+                                          Icons.lock_outline_rounded,
+                                        ),
                                         helperText: Strings.pinHelper,
                                         suffixIcon: IconButton(
                                           onPressed: () => setState(
@@ -303,7 +358,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                         LengthLimitingTextInputFormatter(4),
                                       ],
                                       validator: _validateConfirmPin,
-                                      decoration: const InputDecoration(),
+                                      decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.lock_outline_rounded,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: AppSpacing.md),
@@ -322,12 +381,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                                       ],
                                       validator: _validateJawwalPay,
                                       decoration: const InputDecoration(
+                                        prefixIcon: Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                        ),
                                         helperText: Strings.jawwalPayNumberHint,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
                             if (_formError != null) ...[
                               const SizedBox(height: AppSpacing.md),
                               Semantics(

@@ -315,6 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
             },
             child: Scaffold(
               appBar: AppBar(
+                toolbarHeight: _step == _Step.id ? 16 : kToolbarHeight,
                 backgroundColor: Colors.transparent,
                 scrolledUnderElevation: 0,
                 automaticallyImplyLeading: false,
@@ -349,6 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _content(bool isLoading) {
     final textTheme = Theme.of(context).textTheme;
+    final compact = MediaQuery.sizeOf(context).height < 720;
     final title = switch (_step) {
       _Step.id => Strings.loginIdTitle,
       _Step.pin => Strings.loginPinTitle,
@@ -358,28 +360,89 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: SvgPicture.asset(
-              'assets/images/logo.svg',
-              width: 56,
-              height: 56,
+          if (compact)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/images/stitch_loaf.svg',
+                  width: 48,
+                  height: 48,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'رغيف',
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: AppColors.accentContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset(
+                  'assets/images/stitch_loaf.svg',
+                  width: 52,
+                  height: 52,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(title, style: textTheme.displayMedium),
-          if (_step != _Step.id) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              Strings.loginForId(_idController.text.trim()),
-              style: textTheme.bodyLarge,
+              'رغيف',
+              textAlign: TextAlign.center,
+              style: textTheme.displayMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
-          const SizedBox(height: AppSpacing.lg),
-          switch (_step) {
-            _Step.id => _idStep(isLoading),
-            _Step.pin => _pinStep(isLoading),
-            _Step.otp => _otpStep(isLoading),
-          },
+          SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
+          Container(
+            padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.textPrimary.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (_step != _Step.id) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    Strings.loginForId(_idController.text.trim()),
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyLarge,
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                switch (_step) {
+                  _Step.id => _idStep(isLoading),
+                  _Step.pin => _pinStep(isLoading),
+                  _Step.otp => _otpStep(isLoading),
+                },
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -427,6 +490,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onChanged: (_) => _clearErrors(),
             onSubmitted: (_) => _continue(),
             decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.badge_outlined),
               helperText: Strings.nationalIdHelper,
               errorText: _idError,
             ),
@@ -480,6 +544,7 @@ class _LoginScreenState extends State<LoginScreen> {
             },
             onSubmitted: (_) => _submitPin(),
             decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.lock_outline_rounded),
               errorText: _pinError,
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _showPin = !_showPin),
@@ -571,7 +636,10 @@ class _LoginScreenState extends State<LoginScreen> {
               if (value.trim().length == 4) _verifyOtp();
             },
             onSubmitted: (_) => _verifyOtp(),
-            decoration: InputDecoration(errorText: _otpError),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.sms_outlined),
+              errorText: _otpError,
+            ),
           ),
         ),
         _error(),

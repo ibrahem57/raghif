@@ -1,0 +1,98 @@
+name: APK builds
+
+# Manual / branch builds for the team: one debug APK and one release APK,
+# both carrying the real Supabase project from repo variables. Unlike
+# release.yml this does not touch the rolling "latest" release, so a design
+# branch build can never replace the master build people are using.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/flutter
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+          cache-dependency-path: |
+            flutter/android/gradle/wrapper/gradle-wrapper.properties
+            flutter/android/**/*.gradle.kts
+
+      - run: yes | flutter doctor --android-licenses || true
+
+      # gradle.properties is tuned for a 6 GB laptop (1536 MB heap). Jetifier
+      # needs more than that to transform the Flutter engine jar on a CI
+      # runner — it died with "Java heap space" at :app:compileDebugKotlin.
+      - name: Raise Gradle heap for CI
+        run: sed -i 's#^org.gradle.jvmargs=.*#org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError#' android/gradle.properties
+        working-directory: flutter
+
+      # The composite action writes the dummy .env.example. Both APKs are
+      # handed to testers, so overwrite it with the real backend and fail
+      # loudly instead of shipping an app that cannot log in.
+      - name: Write real .env
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+        working-directory: flutter
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Set repo variables (or secrets) SUPABASE_URL and SUPABASE_ANON_KEY"
+            exit 1
+          fi
+          printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env
+
+      - name: Build debug APK
+        run: flutter build apk --debug --target-platform android-arm64
+        working-directory: flutter
+
+      - name: Set up release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        working-directory: flutter/android
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Set repo secrets KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release.jks\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > key.properties
+
+      - name: Build release APK
+        run: flutter build apk --release --target-platform android-arm64
+        working-directory: flutter
+
+      - name: Verify release signature
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          CERTS=$("$APKSIGNER" verify --print-certs flutter/build/app/outputs/flutter-apk/app-release.apk)
+          echo "$CERTS"
+          if echo "$CERTS" | grep -q "CN=Android Debug"; then
+            echo "::error::APK is signed with the debug key, not the release keystore"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raghif-apks-${{ github.sha }}
+          path: |
+            flutter/build/app/outputs/flutter-apk/app-debug.apk
+            flutter/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

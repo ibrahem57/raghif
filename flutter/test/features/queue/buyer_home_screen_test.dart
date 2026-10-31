@@ -12,7 +12,6 @@ import 'package:raghif/features/auth/demo_accounts.dart';
 import 'package:raghif/features/queue/buyer_home_screen.dart';
 import 'package:raghif/features/queue/queue_controller.dart';
 
-
 class MockQueueRepository extends Mock implements QueueRepository {}
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
@@ -75,17 +74,19 @@ void main() {
 
   void stubTodayOrder(PurchaseModel? purchase) {
     when(
-      () => repo.getBlockingPurchase(any(), any()),
+      () => repo.currentOrUpcomingPurchase(any(), any()),
     ).thenAnswer((_) async => purchase);
   }
 
   Future<void> stubLiveOrder(PurchaseModel purchase) async {
-    when(() => repo.watchPurchaseById(purchase.id))
-        .thenAnswer((_) => Stream.value(purchase));
+    when(
+      () => repo.watchPurchaseById(purchase.id),
+    ).thenAnswer((_) => Stream.value(purchase));
   }
 
-  testWidgets('no order today → empty state with a way to the stores',
-      (tester) async {
+  testWidgets('no order today → empty state with a way to the stores', (
+    tester,
+  ) async {
     stubTodayOrder(null);
     await pumpHome(tester);
 
@@ -93,10 +94,12 @@ void main() {
     expect(find.text(Strings.browseStoresButton), findsOneWidget);
   });
 
-  testWidgets('server unreachable → says so with a retry, not "no order"',
-      (tester) async {
-    when(() => repo.getBlockingPurchase(any(), any()))
-        .thenAnswer((_) async => throw const BackendUnavailableException('x'));
+  testWidgets('server unreachable → says so with a retry, not "no order"', (
+    tester,
+  ) async {
+    when(
+      () => repo.currentOrUpcomingPurchase(any(), any()),
+    ).thenAnswer((_) async => throw const BackendUnavailableException('x'));
     await pumpHome(tester);
 
     expect(find.text(Strings.offlineRead), findsOneWidget);
@@ -110,8 +113,9 @@ void main() {
     expect(find.text(Strings.buyerHomeNoOrder), findsOneWidget);
   });
 
-  testWidgets('shows the current order with store, status and batch',
-      (tester) async {
+  testWidgets('shows the current order with store, status and batch', (
+    tester,
+  ) async {
     final purchase = order(status: PurchaseStatus.notified, batchNumber: 3);
     stubTodayOrder(purchase);
     await stubLiveOrder(purchase);
@@ -120,14 +124,16 @@ void main() {
 
     expect(find.text('مخبز الرمال'), findsOneWidget);
     expect(find.text(Strings.statusNotified), findsOneWidget);
+    expect(find.text('#purchase-7'), findsOneWidget);
     expect(find.text(Strings.paidBadge), findsOneWidget);
     expect(find.text(Strings.buyerHomeBatch(3)), findsOneWidget);
     // Ready-for-pickup reassurance, not an invented ETA.
     expect(find.text(Strings.batchReadyNotificationBody), findsOneWidget);
   });
 
-  testWidgets('a waiting order shows the waiting state without an ETA',
-      (tester) async {
+  testWidgets('a waiting order shows the waiting state without an ETA', (
+    tester,
+  ) async {
     final purchase = order(status: PurchaseStatus.waiting);
     stubTodayOrder(purchase);
     await stubLiveOrder(purchase);

@@ -3,9 +3,13 @@ name: Release APK
 # Once per merge to master (or on demand): build the APK and replace the
 # rolling "latest" release, so the newest build is one click away for
 # installs without an app store. Tests already ran on the pull request.
+# Only app changes rebuild the release; docs, specs and workflow edits under
+# .github skip it (a workflow-only push must not delete and recreate "latest").
 on:
   push:
     branches: [master]
+    paths:
+      - "flutter/**"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +38,13 @@ jobs:
             flutter/android/**/*.gradle.kts
 
       - run: yes | flutter doctor --android-licenses || true
+
+      # gradle.properties is tuned for a 6 GB laptop (1536 MB heap). Jetifier
+      # needs more than that to transform the Flutter engine jar on a CI
+      # runner — without this the build dies with "Java heap space".
+      - name: Raise Gradle heap for CI
+        run: sed -i 's#^org.gradle.jvmargs=.*#org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError#' android/gradle.properties
+        working-directory: flutter
 
       # The shared Flutter action writes .env from .env.example (dummy values,
       # fine for tests). A shipped APK needs the real backend, so overwrite it

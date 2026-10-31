@@ -9,6 +9,8 @@ import '../../data/repositories/supabase_auth_repository.dart';
 import '../../data/repositories/supabase_queue_repository.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/repositories/queue_repository.dart';
+import '../../domain/repositories/notification_repository.dart';
+import '../../data/repositories/supabase_notification_repository.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/queue/queue_controller.dart';
 
@@ -51,6 +53,9 @@ Future<void> initDependencies() async {
 
   sl.registerFactory<AuthBloc>(
     () => AuthBloc(authRepository: sl<AuthRepository>()),
+  );
+  sl.registerSingleton<NotificationRepository>(
+    SupabaseNotificationRepository(client: sl<SupabaseClient>()),
   );
   sl.registerLazySingleton<QueueController>(
     () => QueueController(sl<QueueRepository>()),

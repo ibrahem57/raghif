@@ -12,6 +12,7 @@ class StoreModel extends Equatable {
     this.openTime,
     this.closeTime,
     this.area = '',
+    this.governorate,
   });
 
   /// Supabase `stores.id`. Same value on device, on the server and in a
@@ -21,6 +22,7 @@ class StoreModel extends Equatable {
   final bool isOpen;
   final int dailyBagLimit;
   final int bagsRemaining;
+
   /// Supabase profiles UUID of the owner; null for the browse-only demo
   /// bakeries that nobody manages.
   final String? ownerId;
@@ -34,6 +36,7 @@ class StoreModel extends Equatable {
   /// Neighborhood the bakery sits in (e.g. الرمال). Empty when unknown —
   /// shown as a filter chip on the buyer store list, not an address.
   final String area;
+  final String? governorate;
 
   bool get isSoldOut => bagsRemaining <= 0;
   bool get canPurchase => isOpen && !isSoldOut;
@@ -51,6 +54,7 @@ class StoreModel extends Equatable {
     String? openTime,
     String? closeTime,
     String? area,
+    String? governorate,
   }) {
     return StoreModel(
       id: id ?? this.id,
@@ -63,6 +67,7 @@ class StoreModel extends Equatable {
       openTime: openTime ?? this.openTime,
       closeTime: closeTime ?? this.closeTime,
       area: area ?? this.area,
+      governorate: governorate ?? this.governorate,
     );
   }
 
@@ -78,5 +83,6 @@ class StoreModel extends Equatable {
     openTime,
     closeTime,
     area,
+    governorate,
   ];
 }
